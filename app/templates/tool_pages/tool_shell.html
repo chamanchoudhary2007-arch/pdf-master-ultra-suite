@@ -38,7 +38,7 @@
           <span class="eyebrow mb-2">Pro required</span>
           <h2 class="h4 mb-2">This tool is available on Premium plans</h2>
           <p class="text-secondary mb-3">Unlock this workflow from the dashboard billing panel and run it instantly.</p>
-          <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Go to billing</a>
+          <a class="btn btn-primary" href="{{ billing_settings_url }}" data-billing-redirect>Go to billing</a>
         </div>
         {% else %}
         <div class="tool-instructions mb-4">

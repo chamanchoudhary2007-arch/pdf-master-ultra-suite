@@ -30,7 +30,8 @@
         {% else %}
         <span class="tool-status-badge">FREE</span>
         {% endif %}
-        <a class="btn btn-primary btn-sm" href="{{ url_for('tools.tool_detail', tool_key=tool.tool_key) }}">
+        {% set tool_action_url = billing_settings_url if premium_locked else url_for('tools.tool_detail', tool_key=tool.tool_key) %}
+        <a class="btn btn-primary btn-sm" href="{{ tool_action_url }}" {{ 'data-billing-redirect' if premium_locked else '' }}>
           {{ 'Unlock Pro' if premium_locked else 'Open' }}
         </a>
       </div>

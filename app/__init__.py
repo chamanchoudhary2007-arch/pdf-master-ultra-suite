@@ -185,6 +185,10 @@ def register_template_helpers(app: Flask) -> None:
             "APP_NAME": current_app.config["APP_NAME"],
             "is_premium_user": is_premium_user,
             "profile_photo_url": profile_photo_url,
+            "billing_settings_url": current_app.config.get(
+                "BILLING_SETTINGS_URL",
+                "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing",
+            ),
             "tool_categories": [
                 "Organize",
                 "Convert",

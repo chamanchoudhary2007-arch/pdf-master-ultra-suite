@@ -650,5 +650,28 @@
     });
   };
 
+  const defaultBillingSettingsUrl = "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing";
+
+  window.getBillingSettingsUrl = function getBillingSettingsUrl() {
+    const configuredUrl = (document.body && document.body.dataset && document.body.dataset.billingSettingsUrl) || "";
+    return configuredUrl || defaultBillingSettingsUrl;
+  };
+
+  window.redirectToBillingSettings = function redirectToBillingSettings(event) {
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+    window.location.assign(window.getBillingSettingsUrl());
+    return false;
+  };
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-billing-redirect]");
+    if (!trigger) {
+      return;
+    }
+    window.redirectToBillingSettings(event);
+  });
+
   window.setupUploadUX && window.setupUploadUX();
 })();

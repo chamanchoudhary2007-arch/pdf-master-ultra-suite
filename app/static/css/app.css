@@ -748,6 +748,11 @@ html[data-bs-theme="dark"] .premium-chip {
   background: rgba(22, 109, 80, 0.08);
 }
 
+.settings-nav-link.is-active {
+  border-color: rgba(22, 109, 80, 0.55);
+  background: rgba(22, 109, 80, 0.14);
+}
+
 .settings-nav-link i {
   color: var(--app-primary);
 }

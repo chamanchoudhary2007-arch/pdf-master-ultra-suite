@@ -48,7 +48,7 @@
       <a class="btn btn-sm btn-primary" href="{{ url_for('tools.tool_detail', tool_key='merge_pdf') }}">Merge PDF</a>
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tools.tool_detail', tool_key='compress_pdf') }}">Compress PDF</a>
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tools.tool_detail', tool_key='images_to_pdf') }}">Image to PDF</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.settings') }}">Manage plan</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ billing_settings_url }}">Manage plan</a>
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_recent_outputs_zip') }}">Download all outputs (.zip)</a>
     </div>
   </div>
@@ -107,7 +107,8 @@
             {% else %}
             <span class="tool-status-badge">FREE</span>
             {% endif %}
-            <a class="btn btn-primary btn-sm" href="{{ url_for('tools.tool_detail', tool_key=item.tool.tool_key) }}">
+            {% set essential_action_url = billing_settings_url if item.premium_locked else url_for('tools.tool_detail', tool_key=item.tool.tool_key) %}
+            <a class="btn btn-primary btn-sm" href="{{ essential_action_url }}" {{ 'data-billing-redirect' if item.premium_locked else '' }}>
               {{ 'Unlock Pro' if item.premium_locked else 'Open' }}
             </a>
           </div>

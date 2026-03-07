@@ -43,9 +43,9 @@
 
           <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Back to dashboard</a>
-            <a class="btn btn-outline-secondary" href="{{ url_for('main.settings') }}">Open settings</a>
+            <a class="btn btn-outline-secondary" href="{{ billing_settings_url }}">Open settings</a>
             {% if state != 'success' %}
-            <a class="btn btn-outline-secondary" href="{{ url_for('main.settings') }}#billing">Try again</a>
+            <a class="btn btn-outline-secondary" href="{{ billing_settings_url }}">Try again</a>
             {% endif %}
           </div>
         </div>

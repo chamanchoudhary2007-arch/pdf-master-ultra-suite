@@ -105,6 +105,13 @@ class Config:
     RAZORPAY_CURRENCY = (os.environ.get("RAZORPAY_CURRENCY", "INR") or "INR").strip().upper()
     RAZORPAY_CALLBACK_URL = os.environ.get("RAZORPAY_CALLBACK_URL", "").strip()
     RAZORPAY_API_BASE = (os.environ.get("RAZORPAY_API_BASE", "https://api.razorpay.com") or "https://api.razorpay.com").strip().rstrip("/")
+    BILLING_SETTINGS_URL = (
+        os.environ.get(
+            "BILLING_SETTINGS_URL",
+            "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing",
+        )
+        or "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing"
+    ).strip()
 
 
 class DevelopmentConfig(Config):
