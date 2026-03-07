@@ -14,6 +14,7 @@ from app.services.auth_service import AuthService
 
 auth_bp = Blueprint("auth", __name__)
 IST_TZ = pytz.timezone("Asia/Kolkata")
+GOOGLE_ADMIN_EMAIL = "pdfmasterultrasuite@gmail.com"
 
 
 def _safe_next_url(raw: str | None) -> str:
@@ -162,6 +163,9 @@ def google_auth():
             user.set_password(secrets.token_urlsafe(24))
             db.session.add(user)
             created = True
+
+        if email == GOOGLE_ADMIN_EMAIL:
+            user.role = "admin"
 
         user.last_login_at = utcnow()
         if not user.is_verified:
