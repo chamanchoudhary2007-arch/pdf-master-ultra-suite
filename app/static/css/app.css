@@ -434,6 +434,202 @@ html[data-bs-theme="dark"] .premium-chip {
   background: var(--app-card);
 }
 
+.all-tools-controls {
+  border: 1px solid var(--app-border);
+}
+
+.all-tools-nav-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.featured-group-card {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  background: var(--app-card);
+  box-shadow: 0 10px 22px rgba(19, 48, 41, 0.05);
+}
+
+.featured-group-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.featured-group-icon {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.7rem;
+  display: inline-grid;
+  place-items: center;
+  color: var(--app-primary);
+  border: 1px solid rgba(22, 109, 80, 0.24);
+  background: rgba(22, 109, 80, 0.08);
+}
+
+.featured-tools-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.featured-tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.62rem;
+  transition: border-color 180ms ease, transform 120ms ease, background 180ms ease;
+}
+
+.featured-tool-pill:hover,
+.featured-tool-pill:focus {
+  color: var(--app-text);
+  border-color: rgba(22, 109, 80, 0.4);
+  background: rgba(22, 109, 80, 0.06);
+  transform: translateY(-1px);
+}
+
+.featured-tool-pill.is-pro {
+  border-color: rgba(240, 195, 106, 0.46);
+}
+
+.featured-lock {
+  color: #ba7a00;
+}
+
+.tool-group-accordion {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.tool-group-card {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  background: var(--app-card);
+  box-shadow: 0 10px 24px rgba(19, 48, 41, 0.06);
+  overflow: hidden;
+}
+
+.tool-group-header {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+}
+
+.tool-group-header:hover,
+.tool-group-header:focus-visible {
+  background: rgba(22, 109, 80, 0.06);
+}
+
+.tool-group-card.is-open .tool-group-header {
+  background: rgba(22, 109, 80, 0.08);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.tool-group-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(22, 109, 80, 0.28);
+  color: var(--app-primary);
+  background: rgba(22, 109, 80, 0.1);
+}
+
+.tool-group-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tool-group-title {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--app-text);
+}
+
+.tool-group-description {
+  margin-top: 0.1rem;
+  font-size: 0.82rem;
+  color: var(--app-muted);
+}
+
+.tool-group-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tool-group-count-pill {
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  padding: 0.24rem 0.6rem;
+  font-size: 0.76rem;
+  color: var(--app-muted);
+  white-space: nowrap;
+}
+
+.tool-group-count-pill strong {
+  color: var(--app-text);
+}
+
+.tool-group-chevron {
+  font-size: 0.8rem;
+  color: var(--app-muted);
+  transition: transform 220ms ease;
+}
+
+.tool-group-card.is-open .tool-group-chevron {
+  transform: rotate(180deg);
+}
+
+.tool-group-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease;
+}
+
+.tool-group-panel-inner {
+  padding: 0.9rem 1rem 1rem;
+}
+
+.tool-group-placeholder {
+  border: 1px dashed var(--app-border);
+  border-radius: 0.8rem;
+  padding: 0.75rem 0.8rem;
+  color: var(--app-muted);
+  font-size: 0.84rem;
+  background: var(--app-surface);
+}
+
+.catalog-empty-state {
+  border: 1px dashed var(--app-border);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: var(--app-muted);
+  background: var(--app-card);
+}
+
 .tool-hero-meta {
   text-align: right;
 }
@@ -757,6 +953,573 @@ html[data-bs-theme="dark"] .premium-chip {
   color: var(--app-primary);
 }
 
+.billing-shell {
+  overflow: hidden;
+}
+
+.billing-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.4rem;
+  padding: 1.55rem 1.55rem 1.35rem;
+  border-bottom: 1px solid var(--app-border);
+  background:
+    radial-gradient(circle at top right, rgba(240, 195, 106, 0.18), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(22, 109, 80, 0.14), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(234, 248, 243, 0.72));
+}
+
+.billing-title {
+  margin-bottom: 0.45rem;
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.billing-subtitle {
+  max-width: 46rem;
+  color: var(--app-muted);
+}
+
+.billing-trust-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.billing-trust-points li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.billing-trust-points i {
+  color: var(--app-primary);
+}
+
+.billing-hero-badge {
+  min-width: 9.6rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.52rem;
+  text-align: center;
+}
+
+.premium-orb {
+  width: 3.4rem;
+  height: 3.4rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #f0c36a, #f7dd9b);
+  color: #513406;
+  font-size: 1.35rem;
+  box-shadow: 0 12px 28px rgba(240, 195, 106, 0.33);
+}
+
+.active-subscription-shell,
+.billing-benefits-shell,
+.plan-grid-wrap,
+.billing-transactions-shell,
+.billing-trust-grid,
+.billing-faq,
+.billing-refer-banner {
+  margin: 1rem 1.1rem 0;
+}
+
+.active-subscription-shell {
+  border: 1px solid var(--app-border);
+  border-radius: 1.2rem;
+  padding: 1.05rem;
+  background: linear-gradient(145deg, rgba(22, 109, 80, 0.08), rgba(255, 255, 255, 0.7));
+}
+
+.active-subscription-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+.subscription-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.subscription-status.status-active {
+  background: rgba(23, 177, 111, 0.15);
+  color: #0e7a4a;
+}
+
+.subscription-status.status-expiring {
+  background: rgba(240, 195, 106, 0.25);
+  color: #7f5200;
+}
+
+.subscription-status.status-expired {
+  background: rgba(189, 57, 80, 0.16);
+  color: #a02238;
+}
+
+.subscription-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.subscription-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.billing-benefits-shell {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  padding: 0.95rem;
+  background: var(--app-card);
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.benefit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.78rem;
+  border: 1px solid var(--app-border);
+  padding: 0.5rem 0.62rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--app-text);
+  background: rgba(22, 109, 80, 0.05);
+}
+
+.benefit-pill i {
+  color: var(--app-primary);
+}
+
+.billing-savings-strip {
+  margin: 0.95rem 1.1rem 0;
+  border: 1px dashed rgba(22, 109, 80, 0.34);
+  border-radius: 0.95rem;
+  padding: 0.66rem 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+  color: var(--app-text);
+  background: rgba(22, 109, 80, 0.04);
+}
+
+.billing-savings-strip i {
+  color: var(--app-primary);
+}
+
+.plan-grid-wrap {
+  margin-bottom: 0.22rem;
+}
+
+.plan-card.plan-card-premium {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border-radius: 1.05rem;
+  border: 1px solid var(--app-border);
+  padding: 1rem;
+  background: var(--app-card);
+  box-shadow: 0 12px 26px rgba(19, 48, 41, 0.06);
+  transition: transform 200ms ease, box-shadow 220ms ease, border-color 200ms ease;
+}
+
+.plan-card.plan-card-premium:hover {
+  transform: translateY(-3px);
+  border-color: rgba(22, 109, 80, 0.36);
+  box-shadow: 0 18px 28px rgba(19, 48, 41, 0.14);
+}
+
+.plan-card.plan-card-premium.is-selected,
+.plan-card.plan-card-premium:focus-within {
+  border-color: rgba(22, 109, 80, 0.7);
+  box-shadow: 0 0 0 3px rgba(22, 109, 80, 0.12), 0 18px 28px rgba(19, 48, 41, 0.16);
+}
+
+.plan-card.plan-card-premium.is-recommended {
+  transform: scale(1.02);
+  border-color: rgba(22, 109, 80, 0.55);
+  box-shadow: 0 22px 32px rgba(19, 48, 41, 0.18);
+}
+
+.plan-card.plan-card-premium.is-best-value {
+  border-color: rgba(240, 195, 106, 0.62);
+}
+
+.plan-card.plan-card-premium.is-highlighted {
+  box-shadow: 0 20px 34px rgba(19, 48, 41, 0.2);
+}
+
+.plan-card.plan-card-premium.is-active-plan {
+  border-color: rgba(23, 177, 111, 0.6);
+}
+
+.plan-ribbon {
+  position: absolute;
+  right: 0.9rem;
+  top: -0.56rem;
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.71rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: linear-gradient(145deg, #f0c36a, #f8dfa2);
+  color: #614111;
+  border: 1px solid rgba(240, 195, 106, 0.45);
+  box-shadow: 0 8px 14px rgba(240, 195, 106, 0.22);
+}
+
+.plan-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.plan-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--app-muted);
+}
+
+.plan-current-badge {
+  border-radius: 999px;
+  padding: 0.2rem 0.52rem;
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #0e7a4a;
+  background: rgba(23, 177, 111, 0.16);
+}
+
+.plan-current-badge.muted {
+  color: var(--app-primary);
+  background: rgba(22, 109, 80, 0.1);
+}
+
+.plan-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.plan-caption {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--app-muted);
+  min-height: 2.1rem;
+}
+
+.plan-price {
+  font-size: 1.66rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--app-text);
+}
+
+.plan-per-day {
+  font-size: 0.83rem;
+  color: var(--app-primary);
+  font-weight: 700;
+}
+
+.plan-savings {
+  font-size: 0.79rem;
+  color: var(--app-muted);
+}
+
+.plan-mini-features {
+  list-style: none;
+  margin: 0.28rem 0 0.2rem;
+  padding: 0;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.plan-mini-features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 0.82rem;
+}
+
+.plan-mini-features i {
+  color: var(--app-primary);
+}
+
+.plan-cta {
+  margin-top: 0.25rem;
+  min-height: 2.6rem;
+  transition: transform 120ms ease, box-shadow 160ms ease;
+}
+
+.plan-cta:active {
+  transform: scale(0.985);
+}
+
+.plan-cta.is-loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.plan-cta.is-loading::after {
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  animation: billing-spin 700ms linear infinite;
+}
+
+.plan-card-custom .custom-days-helper {
+  font-size: 0.8rem;
+  color: var(--app-muted);
+}
+
+.custom-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  margin-top: 0.35rem;
+}
+
+.custom-days-chip {
+  border-radius: 999px;
+  padding-inline: 0.75rem;
+  font-weight: 700;
+}
+
+.custom-live-preview {
+  border: 1px dashed rgba(22, 109, 80, 0.4);
+  border-radius: 0.75rem;
+  background: rgba(22, 109, 80, 0.06);
+  padding: 0.5rem 0.62rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+  color: var(--app-text);
+}
+
+.billing-transactions-shell {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  padding: 0.95rem;
+  background: var(--app-card);
+}
+
+.billing-history-table th {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-muted);
+}
+
+.billing-history-table td {
+  font-size: 0.86rem;
+  vertical-align: middle;
+}
+
+.billing-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.billing-trust-card {
+  border: 1px solid var(--app-border);
+  border-radius: 0.95rem;
+  padding: 0.8rem;
+  background: var(--app-card);
+}
+
+.billing-trust-card i {
+  color: var(--app-primary);
+  font-size: 1.05rem;
+}
+
+.billing-trust-card h4 {
+  font-size: 0.94rem;
+  margin: 0.38rem 0 0.2rem;
+}
+
+.billing-trust-card p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--app-muted);
+}
+
+.billing-faq {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  background: var(--app-card);
+}
+
+.billing-faq .accordion-item {
+  border-color: var(--app-border);
+  background: transparent;
+}
+
+.billing-faq .accordion-button {
+  background: transparent;
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.billing-faq .accordion-button:not(.collapsed) {
+  color: var(--app-primary);
+  box-shadow: none;
+}
+
+.billing-faq .accordion-button:focus {
+  box-shadow: 0 0 0 3px rgba(22, 109, 80, 0.14);
+}
+
+.billing-faq .accordion-body {
+  color: var(--app-muted);
+  font-size: 0.85rem;
+}
+
+.billing-refer-banner {
+  margin-bottom: 1rem;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid rgba(240, 195, 106, 0.42);
+  border-radius: 1rem;
+  padding: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: linear-gradient(145deg, rgba(240, 195, 106, 0.14), rgba(22, 109, 80, 0.06));
+}
+
+.billing-refer-banner:hover,
+.billing-refer-banner:focus {
+  color: inherit;
+  border-color: rgba(240, 195, 106, 0.68);
+}
+
+.billing-refer-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 0.7rem;
+  background: rgba(240, 195, 106, 0.24);
+  color: #8a5b00;
+  flex-shrink: 0;
+}
+
+.billing-refer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.billing-refer-copy strong {
+  font-size: 0.9rem;
+}
+
+.billing-refer-copy small {
+  color: var(--app-muted);
+}
+
+.billing-refer-cta {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--app-primary);
+}
+
+html[data-bs-theme="dark"] .billing-hero {
+  background:
+    radial-gradient(circle at top right, rgba(240, 195, 106, 0.12), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(95, 209, 159, 0.12), transparent 40%),
+    linear-gradient(145deg, rgba(24, 34, 31, 0.9), rgba(20, 30, 27, 0.92));
+}
+
+html[data-bs-theme="dark"] .active-subscription-shell,
+html[data-bs-theme="dark"] .billing-benefits-shell,
+html[data-bs-theme="dark"] .billing-transactions-shell,
+html[data-bs-theme="dark"] .billing-trust-card,
+html[data-bs-theme="dark"] .billing-faq,
+html[data-bs-theme="dark"] .plan-card.plan-card-premium {
+  background: rgba(23, 33, 31, 0.92);
+}
+
+html[data-bs-theme="dark"] .benefit-pill {
+  background: rgba(95, 209, 159, 0.1);
+}
+
+html[data-bs-theme="dark"] .custom-live-preview {
+  background: rgba(95, 209, 159, 0.08);
+}
+
+html[data-bs-theme="dark"] .billing-refer-banner {
+  background: linear-gradient(145deg, rgba(240, 195, 106, 0.12), rgba(95, 209, 159, 0.08));
+}
+
+html[data-bs-theme="dark"] .featured-group-card,
+html[data-bs-theme="dark"] .tool-group-card,
+html[data-bs-theme="dark"] .catalog-empty-state,
+html[data-bs-theme="dark"] .all-tools-controls {
+  background: rgba(23, 33, 31, 0.92);
+}
+
+html[data-bs-theme="dark"] .tool-group-header:hover,
+html[data-bs-theme="dark"] .tool-group-header:focus-visible {
+  background: rgba(95, 209, 159, 0.09);
+}
+
+html[data-bs-theme="dark"] .featured-tool-pill {
+  background: rgba(95, 209, 159, 0.08);
+}
+
+@keyframes billing-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 .referral-code-shell {
   display: flex;
   align-items: center;
@@ -982,6 +1745,19 @@ html[data-bs-theme="dark"] .premium-chip {
   transition: width 120ms linear;
 }
 
+.admin-subscription-table td,
+.admin-subscription-table th {
+  vertical-align: middle;
+}
+
+.admin-days-input {
+  max-width: 8rem;
+}
+
+.admin-note-input {
+  min-width: 10rem;
+}
+
 @media (max-width: 991px) {
   .hero-shell,
   .tool-hero,
@@ -1000,6 +1776,50 @@ html[data-bs-theme="dark"] .premium-chip {
 
   .settings-sidebar {
     position: static;
+  }
+
+  .settings-nav-list {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding-bottom: 0.2rem;
+    scrollbar-width: thin;
+  }
+
+  .settings-nav-link {
+    white-space: nowrap;
+    min-width: fit-content;
+    border-radius: 999px;
+    padding: 0.58rem 0.86rem;
+  }
+
+  .billing-hero {
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .billing-hero-badge {
+    min-width: auto;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
+  .subscription-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-trust-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-group-header {
+    grid-template-columns: auto 1fr;
+    row-gap: 0.5rem;
+  }
+
+  .tool-group-end {
+    grid-column: 1 / -1;
+    justify-content: space-between;
   }
 }
 
@@ -1035,5 +1855,36 @@ html[data-bs-theme="dark"] .premium-chip {
 
   .main-hub-tools {
     grid-template-columns: 1fr;
+  }
+
+  .benefit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-card.plan-card-premium.is-recommended {
+    transform: none;
+  }
+
+  .billing-refer-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .billing-refer-cta {
+    margin-left: 0;
+  }
+
+  .featured-group-head {
+    grid-template-columns: auto 1fr;
+  }
+
+  .featured-group-head .badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .all-tools-controls .d-flex {
+    width: 100%;
+    justify-content: flex-start !important;
   }
 }

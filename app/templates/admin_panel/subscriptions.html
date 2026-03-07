@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}Admin Subscriptions | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <span class="eyebrow">Premium control</span>
+      <h1 class="h2 mb-0">Subscription management</h1>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin.dashboard') }}">
+      <i class="bi bi-speedometer2 me-1"></i>Back to dashboard
+    </a>
+  </div>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-surface"><span>Total premium users</span><strong>{{ premium_summary.total_premium_users }}</strong></div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-surface"><span>Active</span><strong>{{ premium_summary.active_count }}</strong></div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-surface"><span>Expiring soon</span><strong>{{ premium_summary.expiring_count }}</strong></div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-surface"><span>Premium revenue</span><strong>{{ premium_summary.revenue_paise|money }}</strong></div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Plan-wise sales</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Plan</th>
+            <th>Purchases</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for plan in premium_summary.plan_sales %}
+          <tr>
+            <td>{{ plan.plan_name }}</td>
+            <td>{{ plan.purchases }}</td>
+            <td>{{ plan.revenue_paise|money }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-center text-secondary py-3">No successful plan sales yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-xl-3 col-md-6">
+        <label class="form-label small text-muted">Search</label>
+        <input class="form-control" name="q" type="text" value="{{ filters.q }}" placeholder="Name or email">
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted">Plan</label>
+        <select class="form-select" name="plan">
+          <option value="all" {{ 'selected' if filters.plan == 'all' else '' }}>All plans</option>
+          {% for plan in plan_options %}
+          <option value="{{ plan.plan_key }}" {{ 'selected' if filters.plan == plan.plan_key else '' }}>{{ plan.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted">Subscription</label>
+        <select class="form-select" name="subscription_status">
+          <option value="all" {{ 'selected' if filters.subscription_status == 'all' else '' }}>All</option>
+          <option value="active" {{ 'selected' if filters.subscription_status == 'active' else '' }}>Active</option>
+          <option value="expiring_soon" {{ 'selected' if filters.subscription_status == 'expiring_soon' else '' }}>Expiring soon</option>
+          <option value="expired" {{ 'selected' if filters.subscription_status == 'expired' else '' }}>Expired</option>
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted">Payment</label>
+        <select class="form-select" name="payment_status">
+          <option value="all" {{ 'selected' if filters.payment_status == 'all' else '' }}>All</option>
+          <option value="success" {{ 'selected' if filters.payment_status == 'success' else '' }}>Success</option>
+          <option value="pending" {{ 'selected' if filters.payment_status == 'pending' else '' }}>Pending</option>
+          <option value="failed" {{ 'selected' if filters.payment_status == 'failed' else '' }}>Failed</option>
+        </select>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <label class="form-label small text-muted">Source</label>
+        <select class="form-select" name="source">
+          <option value="all" {{ 'selected' if filters.source == 'all' else '' }}>All sources</option>
+          {% for source in source_options %}
+          <option value="{{ source }}" {{ 'selected' if filters.source == source else '' }}>{{ source }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted">From</label>
+        <input class="form-control" type="date" name="date_from" value="{{ filters.date_from }}">
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted">To</label>
+        <input class="form-control" type="date" name="date_to" value="{{ filters.date_to }}">
+      </div>
+      <div class="col-xl-2 col-md-6 d-grid">
+        <button class="btn btn-primary" type="submit">Apply filters</button>
+      </div>
+      <div class="col-xl-2 col-md-6 d-grid">
+        <a class="btn btn-outline-secondary" href="{{ url_for('admin.subscriptions') }}">Reset</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table align-middle admin-subscription-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Plan</th>
+            <th>Status</th>
+            <th>Start</th>
+            <th>Expiry</th>
+            <th>Days left</th>
+            <th>Latest payment</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% set sub = row.subscription %}
+          {% set status = row.status_summary %}
+          {% set payment = row.latest_payment %}
+          <tr>
+            <td>
+              <div class="fw-medium">{{ row.user.full_name }}</div>
+              <div class="small text-muted">{{ row.user.email }}</div>
+            </td>
+            <td>
+              <div class="fw-medium">{{ sub.plan_name }}</div>
+              <div class="small text-muted">{{ sub.plan_key }}</div>
+            </td>
+            <td><span class="badge text-bg-{{ 'warning' if status.status_key == 'expiring_soon' else ('secondary' if status.status_key == 'expired' else 'success') }}">{{ status.status_label }}</span></td>
+            <td>{{ status.started_at.strftime('%d %b %Y') if status.started_at else '-' }}</td>
+            <td>{{ status.expires_at.strftime('%d %b %Y') if status.expires_at else '-' }}</td>
+            <td>{{ status.days_remaining }}</td>
+            <td>
+              {% if payment %}
+              <span class="badge text-bg-{{ payment.status_tone }}">{{ payment.status_label }}</span>
+              <div class="small text-muted mt-1">{{ payment.amount_paise|money }}</div>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td><span class="small">{{ row.latest_source }}</span></td>
+            <td>
+              <div class="vstack gap-2">
+                <form method="post" action="{{ url_for('admin.subscription_action', user_id=row.user.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="grant">
+                  <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                  <select class="form-select form-select-sm flex-grow-1" name="plan_key" required>
+                    {% for plan in plan_options %}
+                    <option value="{{ plan.plan_key }}">{{ plan.name }}</option>
+                    {% endfor %}
+                    <option value="pro_custom">Custom days</option>
+                  </select>
+                  <input class="form-control form-control-sm admin-days-input" type="number" name="custom_days" min="{{ custom_min_days }}" max="{{ custom_max_days }}" placeholder="Custom days">
+                  <input class="form-control form-control-sm admin-note-input" type="text" name="notes" maxlength="255" placeholder="Note (optional)">
+                  <button class="btn btn-sm btn-outline-success" type="submit">Grant/Renew</button>
+                </form>
+
+                <form method="post" action="{{ url_for('admin.subscription_action', user_id=row.user.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="extend">
+                  <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                  <input class="form-control form-control-sm admin-days-input" type="number" name="extra_days" min="1" placeholder="Days" required>
+                  <input class="form-control form-control-sm admin-note-input" type="text" name="notes" maxlength="255" placeholder="Note (optional)">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Extend</button>
+                </form>
+
+                <form method="post" action="{{ url_for('admin.subscription_action', user_id=row.user.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="revoke">
+                  <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                  <input class="form-control form-control-sm admin-note-input" type="text" name="notes" maxlength="255" placeholder="Reason (optional)">
+                  <button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Revoke premium for {{ row.user.email }}?');">Revoke</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-secondary py-4">No subscriptions found for the selected filters.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Recent subscription events</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Event</th>
+            <th>Source</th>
+            <th>Delta</th>
+            <th>Payment Ref</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in premium_summary.recent_events %}
+          <tr>
+            <td>{{ event.created_at.strftime('%d %b %Y %H:%M') if event.created_at else '-' }}</td>
+            <td>{{ event.user.email if event.user else ('User #' ~ event.user_id) }}</td>
+            <td>{{ event.event_type }}</td>
+            <td>{{ event.source }}</td>
+            <td>{{ event.delta_days }}</td>
+            <td class="small text-break">{{ event.payment_ref or '-' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-secondary py-3">No subscription events recorded yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

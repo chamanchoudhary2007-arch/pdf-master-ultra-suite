@@ -11,6 +11,18 @@
   <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Revenue</span><strong>{{ summary.revenue_paise|money }}</strong></div></div>
   <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Cloud files</span><strong>{{ summary.cloud_files }}</strong></div></div>
 </section>
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="d-flex flex-wrap gap-3">
+      <div class="metric-inline"><span>Premium users</span><strong>{{ premium_summary.total_premium_users }}</strong></div>
+      <div class="metric-inline"><span>Active</span><strong>{{ premium_summary.active_count }}</strong></div>
+      <div class="metric-inline"><span>Expiring soon</span><strong>{{ premium_summary.expiring_count }}</strong></div>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.subscriptions') }}">
+      Open subscription manager
+    </a>
+  </div>
+</section>
 <section class="row g-4">
   <div class="col-xl-5">
     <div class="card border-0 shadow-sm h-100">

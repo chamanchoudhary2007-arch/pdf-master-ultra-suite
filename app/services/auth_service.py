@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from html import escape
 
 import pytz
 from flask import abort, current_app, request, session
@@ -153,7 +154,7 @@ class AuthService:
         active_subscription = (
             UserSubscription.query.filter(
                 UserSubscription.user_id == referrer.id,
-                UserSubscription.status == "active",
+                UserSubscription.status.in_(["active", "expiring_soon"]),
             )
             .order_by(UserSubscription.expires_at.desc())
             .first()
@@ -209,52 +210,114 @@ class AuthService:
         if missing:
             raise ValueError("Unable to send OTP. Please check server settings.")
         ttl_minutes = int(current_app.config["OTP_TTL_MINUTES"])
-        app_name = current_app.config["APP_NAME"]
-        product_name = "PDF Master Ultra Suite"
-        if purpose == AuthService.OTP_PURPOSE_SIGNUP:
-            subject = f"{app_name} Signup Verification Code"
-        else:
-            subject = f"{app_name} Login Verification Code"
+        app_name = "PDFMaster Ultra Suite"
+        subject = "Your PDFMaster Verification Code (Valid for 2 minutes)"
         body = (
-            f"Welcome to {product_name}.\n\n"
-            "To ensure the security of your account, please use the following "
-            "One-Time Password (OTP) to verify your email address.\n\n"
-            f"OTP: {otp_code}\n\n"
-            f"For your security, this code will expire in exactly {ttl_minutes} minutes. "
-            "If you did not initiate this request, please safely ignore this email."
+            f"{app_name}\n\n"
+            "Use the following verification code to confirm your email address.\n\n"
+            f"{otp_code}\n\n"
+            f"This code expires in {ttl_minutes} minutes.\n\n"
+            "For security reasons, never share this code with anyone.\n\n"
+            "If you did not request this email, you can safely ignore it."
         )
+
+        logo_url = (current_app.config.get("EMAIL_LOGO_URL", "") or "").strip()
+        if not logo_url.lower().startswith(("https://", "http://")):
+            logo_url = ""
+        if not logo_url:
+            logo_url = "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg"
+        logo_src = escape(logo_url, quote=True)
+        logo_alt = escape(app_name, quote=True)
+        app_name_html = escape(app_name)
+
         html = f"""
 <!doctype html>
 <html lang="en">
-  <body style="margin:0;padding:0;background:#f4f7f6;font-family:Arial,Helvetica,system-ui,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f6;padding:28px 12px;">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <style>
+      @media screen and (max-width: 560px) {{
+        .email-container {{
+          width: 100% !important;
+        }}
+        .content-cell {{
+          padding-left: 16px !important;
+          padding-right: 16px !important;
+        }}
+        .otp-code {{
+          font-size: 36px !important;
+          letter-spacing: 7px !important;
+        }}
+      }}
+      @media (prefers-color-scheme: dark) {{
+        .email-bg {{
+          background: #0b1220 !important;
+        }}
+        .card {{
+          background: #111a2c !important;
+          border-color: #28364d !important;
+        }}
+        .main-text {{
+          color: #f3f4f6 !important;
+        }}
+        .sub-text {{
+          color: #d1d5db !important;
+        }}
+        .otp-box {{
+          background: #10352a !important;
+          border-color: #1f6f57 !important;
+          color: #e8fff5 !important;
+        }}
+        .footer {{
+          color: #9ca3af !important;
+          border-color: #28364d !important;
+        }}
+      }}
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#eef3f2;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-bg" style="background:#eef3f2;padding:16px 8px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:16px;box-shadow:0 10px 30px rgba(17,24,39,0.10);overflow:hidden;">
+          <table role="presentation" width="560" cellspacing="0" cellpadding="0" class="email-container card" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #dce7e3;border-radius:16px;overflow:hidden;">
             <tr>
-              <td style="padding:28px 34px 16px 34px;text-align:center;border-bottom:1px solid #edf1f0;">
-                <div style="font-size:30px;line-height:1.2;font-weight:800;letter-spacing:0.2px;color:#116e54;">
-                  PDF Master Ultra Suite
+              <td class="content-cell" style="padding:20px 20px 14px;text-align:center;border-bottom:1px solid #e8f0ed;">
+                <img src="{logo_src}" width="56" height="56" alt="{logo_alt} logo"
+                  style="display:block;margin:0 auto 10px auto;border-radius:12px;border:1px solid #d6e4df;object-fit:cover;width:56px;height:56px;">
+                <div class="main-text" style="font-size:24px;line-height:1.2;font-weight:800;letter-spacing:0.2px;color:#113c30;">
+                  {app_name_html}
+                </div>
+                <div class="sub-text" style="font-size:13px;line-height:1.45;font-weight:600;color:#166b52;margin-top:4px;">
+                  Secure Verification Code
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:26px 34px 10px 34px;color:#1f2937;font-size:16px;line-height:1.7;">
-                Welcome to PDF Master Ultra Suite. To ensure the security of your account, please use the following
-                One-Time Password (OTP) to verify your email address.
+              <td class="content-cell main-text" style="padding:16px 20px 8px;color:#1f2937;font-size:15px;line-height:1.6;text-align:center;">
+                Use the following verification code to confirm your email address.
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 34px 12px 34px;">
-                <div style="background:#e8f2ff;border:1px solid #bfd6ff;border-radius:12px;padding:18px 14px;text-align:center;color:#0f3266;font-weight:800;font-size:34px;letter-spacing:10px;line-height:1;user-select:all;">
-                  {otp_code}
+              <td class="content-cell" style="padding:10px 20px 8px;">
+                <div class="otp-box otp-code" style="background:#f2fbf7;border:1px solid #c8e0d7;border-radius:14px;padding:15px 10px;text-align:center;color:#0f3f31;font-weight:800;font-size:40px;letter-spacing:10px;line-height:1.1;">
+                  {escape(otp_code)}
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:16px 34px 30px 34px;color:#6b7280;font-size:13px;line-height:1.7;">
-                For your security, this code will expire in exactly {ttl_minutes} minutes.
-                If you did not initiate this request, please safely ignore this email.
+              <td class="content-cell sub-text" style="padding:12px 20px 16px;color:#4b5563;font-size:13px;line-height:1.6;text-align:center;">
+                <div style="margin-bottom:6px;">This code expires in {ttl_minutes} minutes.</div>
+                <div style="margin-bottom:6px;">For security reasons, never share this code with anyone.</div>
+                <div>If you did not request this email, you can safely ignore it.</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="content-cell footer" style="padding:12px 20px 16px;border-top:1px solid #e8f0ed;text-align:center;color:#6b7280;font-size:12px;line-height:1.5;">
+                <div>&copy; PDFMaster Ultra Suite</div>
+                <div>Secure document tools platform</div>
               </td>
             </tr>
           </table>
@@ -265,7 +328,22 @@ class AuthService:
 </html>
 """
         try:
-            message = Message(subject=subject, recipients=[email], body=body, html=html)
+            sender_email = (current_app.config.get("MAIL_DEFAULT_SENDER", "") or "").strip()
+            sender_name = (current_app.config.get("MAIL_SENDER_NAME", "") or "").strip()
+            sender = None
+            if sender_email:
+                sender = (sender_name, sender_email) if sender_name else sender_email
+
+            message_kwargs = {
+                "subject": subject,
+                "recipients": [email],
+                "body": body,
+                "html": html,
+            }
+            if sender:
+                message_kwargs["sender"] = sender
+
+            message = Message(**message_kwargs)
             mail.send(message)
         except Exception as e:
             print(e)

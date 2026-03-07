@@ -20,6 +20,13 @@ def _read_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def _read_env_bool(name: str, default: bool = False) -> bool:
+    raw_value = (os.environ.get(name, "") or "").strip().lower()
+    if not raw_value:
+        return default
+    return raw_value in {"1", "true", "yes", "on"}
+
+
 class Config:
     APP_NAME = "PDFMaster Ultra Suite"
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-this-in-production")
@@ -89,6 +96,17 @@ class Config:
         os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
         or MAIL_USERNAME
     ).strip()
+    MAIL_SENDER_NAME = (
+        os.environ.get("MAIL_SENDER_NAME", "PDFMaster Security")
+        or "PDFMaster Security"
+    ).strip()
+    EMAIL_LOGO_URL = (
+        os.environ.get(
+            "EMAIL_LOGO_URL",
+            "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg",
+        )
+        or "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg"
+    ).strip()
     OTP_TTL_MINUTES = int(os.environ.get("OTP_TTL_MINUTES", 2))
     OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", 5))
     GOOGLE_CLIENT_ID = (os.environ.get("GOOGLE_CLIENT_ID", "") or "").strip()
@@ -111,6 +129,17 @@ class Config:
     RAZORPAY_CURRENCY = (os.environ.get("RAZORPAY_CURRENCY", "INR") or "INR").strip().upper()
     RAZORPAY_CALLBACK_URL = os.environ.get("RAZORPAY_CALLBACK_URL", "").strip()
     RAZORPAY_API_BASE = (os.environ.get("RAZORPAY_API_BASE", "https://api.razorpay.com") or "https://api.razorpay.com").strip().rstrip("/")
+    SUBSCRIPTION_PRICE_PROFILE = (
+        os.environ.get("SUBSCRIPTION_PRICE_PROFILE", "default") or "default"
+    ).strip().lower()
+    CUSTOM_DAILY_RATE_PAISE = max(1, _read_env_int("CUSTOM_DAILY_RATE_PAISE", 100))
+    CUSTOM_PLAN_MIN_DAYS = max(1, _read_env_int("CUSTOM_PLAN_MIN_DAYS", 5))
+    CUSTOM_PLAN_MAX_DAYS = max(
+        CUSTOM_PLAN_MIN_DAYS,
+        _read_env_int("CUSTOM_PLAN_MAX_DAYS", 365),
+    )
+    EXPIRING_SOON_DAYS = max(1, _read_env_int("EXPIRING_SOON_DAYS", 7))
+    COUPONS_ENABLED = _read_env_bool("COUPONS_ENABLED", False)
     BILLING_SETTINGS_URL = (
         os.environ.get(
             "BILLING_SETTINGS_URL",

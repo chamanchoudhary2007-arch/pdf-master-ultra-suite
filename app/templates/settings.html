@@ -11,7 +11,7 @@
   </div>
 </section>
 
-{% set selected_settings_tab = (request.args.get('tab', '') or '')|lower %}
+{% set selected_settings_tab = (request.args.get('tab', 'billing') or 'billing')|lower %}
 <section class="row g-4">
   <div class="col-lg-3">
     <div class="card border-0 shadow-sm settings-sidebar">
@@ -40,65 +40,313 @@
   </div>
 
   <div class="col-lg-9">
-    <section class="card border-0 shadow-sm mb-4" id="billing">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start mb-3">
-          <div>
-            <span class="eyebrow">Premium billing</span>
-            <h2 class="h4 mb-1">Upgrade plans</h2>
-            <p class="text-secondary mb-0">Activate or renew premium with Razorpay checkout.</p>
+    <section class="card border-0 shadow-sm mb-4 billing-shell" id="billing">
+      <div class="card-body p-0">
+        <div class="billing-hero">
+          <div class="billing-hero-main">
+            <span class="eyebrow">Premium access</span>
+            <h2 class="billing-title">Upgrade to Premium</h2>
+            <p class="billing-subtitle mb-3">
+              Unlock faster tools, higher limits, AI features, and an ad-free experience for your daily document workflows.
+            </p>
+            <ul class="billing-trust-points mb-0">
+              <li><i class="bi bi-shield-check"></i><span>Secure checkout via Razorpay</span></li>
+              <li><i class="bi bi-lightning-charge"></i><span>Instant activation after payment</span></li>
+              <li><i class="bi bi-people"></i><span>Used by students and daily productivity users</span></li>
+            </ul>
           </div>
-          {% if is_premium_user %}
-          <span class="price-chip premium-chip"><i class="bi bi-patch-check-fill me-1"></i>Premium Active</span>
-          {% endif %}
+          <div class="billing-hero-badge">
+            <span class="premium-orb" aria-hidden="true"><i class="bi bi-stars"></i></span>
+            <span class="small text-muted">Trusted by students and creators</span>
+          </div>
         </div>
-        <div class="row g-3">
-          {% for plan in plan_catalog %}
-          <div class="col-md-6">
-            <div class="plan-card h-100">
-              <div class="small text-uppercase text-muted">{{ plan.label or plan.name }}</div>
-              <div class="fw-semibold mb-1">{{ plan.name }}</div>
-              <div class="h4 mt-1 mb-2">{{ plan.price_paise|money }}</div>
-              <p class="text-secondary small mb-3">{{ plan.tagline }}</p>
-              <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form" data-plan-key="{{ plan.plan_key }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="plan_key" value="{{ plan.plan_key }}">
-                <button class="btn btn-primary w-100" type="button" data-upgrade-button>
-                  {{ 'Renew plan' if active_subscription and active_subscription.plan_key == plan.plan_key else 'Activate plan' }}
-                </button>
-              </form>
+
+        {% if active_subscription_summary %}
+        <div class="active-subscription-shell">
+          <div class="active-subscription-head">
+            <div>
+              <div class="small text-uppercase text-muted fw-semibold mb-1">Current subscription</div>
+              <h3 class="h5 mb-1">{{ active_subscription_summary.plan_name }}</h3>
+              <p class="text-secondary mb-0">{{ active_subscription_summary.renewal_hint }}</p>
+            </div>
+            <span class="subscription-status status-{{ active_subscription_summary.status_tone }}">
+              {{ active_subscription_summary.status_label }}
+            </span>
+          </div>
+          <div class="subscription-metrics">
+            <div class="metric-inline">
+              <span>Started on</span>
+              <strong>{{ active_subscription_summary.started_at.strftime('%d %b %Y') if active_subscription_summary.started_at else '-' }}</strong>
+            </div>
+            <div class="metric-inline">
+              <span>Expires on</span>
+              <strong>{{ active_subscription_summary.expires_at.strftime('%d %b %Y') if active_subscription_summary.expires_at else '-' }}</strong>
+            </div>
+            <div class="metric-inline">
+              <span>Days remaining</span>
+              <strong>{{ active_subscription_summary.days_remaining }}</strong>
             </div>
           </div>
-          {% endfor %}
-          <div class="col-md-6">
-            <div class="plan-card h-100 border border-success-subtle">
-              <div class="small text-uppercase text-muted">Custom Days</div>
-              <div class="fw-semibold mb-1">Choose exact number of days</div>
-              <p class="text-secondary small mb-3">Enter custom days at ₹1 per day.</p>
-              <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form" data-plan-key="pro_custom" data-custom-plan="true">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="plan_key" value="pro_custom">
-                <label class="form-label small text-muted" for="customDaysSettings">Custom Days</label>
-                <input
-                  class="form-control"
-                  id="customDaysSettings"
-                  type="number"
-                  name="custom_days"
-                  min="1"
-                  max="3650"
-                  placeholder="Enter days (example: 15)"
+          <div class="subscription-actions">
+            <a class="btn btn-sm btn-outline-secondary" href="#billing-plans" data-plan-focus="{{ active_subscription_summary.plan_key }}">Renew current plan</a>
+            <a class="btn btn-sm btn-primary" href="#billing-plans">View all plans</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="billing-benefits-shell">
+          <h3 class="h6 mb-2">Premium benefits</h3>
+          <div class="benefit-grid">
+            {% for benefit in premium_benefits %}
+            <div class="benefit-pill"><i class="bi bi-check2-circle"></i>{{ benefit }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="billing-savings-strip">
+          <i class="bi bi-piggy-bank" aria-hidden="true"></i>
+          <span>Longer plans reduce effective daily pricing. 3 Month is the most popular option for regular users.</span>
+        </div>
+
+        <div class="plan-grid-wrap" id="billing-plans">
+          <div class="row g-3">
+            {% for plan in plan_view_models %}
+            <div class="col-md-6 col-xl-4">
+              <article class="plan-card plan-card-premium h-100 {{ 'is-recommended' if plan.is_recommended else '' }} {{ 'is-best-value' if plan.is_best_value else '' }} {{ 'is-active-plan' if plan.is_active_plan else '' }} {{ 'is-highlighted' if plan.is_highlighted else '' }}" data-plan-card data-plan-key="{{ plan.plan_key }}" {% if plan.is_recommended %}data-plan-recommended="true"{% endif %}>
+                {% if plan.badge %}
+                <span class="plan-ribbon">{{ plan.badge }}</span>
+                {% endif %}
+                <div class="plan-topline">
+                  <span class="plan-label">{{ plan.label or plan.name }}</span>
+                  {% if plan.is_active_plan %}
+                  <span class="plan-current-badge">Current</span>
+                  {% endif %}
+                </div>
+                <h3 class="plan-title">{{ plan.name }}</h3>
+                <p class="plan-caption">{{ plan.tagline }}</p>
+                <div class="plan-price">{{ plan.price_paise|money }}</div>
+                <div class="plan-per-day">Only ₹{{ '%.2f'|format(plan.per_day_rupees) }}/day</div>
+                <div class="plan-savings">
+                  {% if plan.savings_percent > 0 %}
+                  Save {{ plan.savings_percent }}% vs 1 Month plan
+                  {% else %}
+                  Flexible starter pricing
+                  {% endif %}
+                </div>
+                <ul class="plan-mini-features">
+                  {% for bullet in plan.benefits[:5] %}
+                  <li><i class="bi bi-check2"></i><span>{{ bullet }}</span></li>
+                  {% endfor %}
+                </ul>
+                <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form mt-auto" data-plan-key="{{ plan.plan_key }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="plan_key" value="{{ plan.plan_key }}">
+                  <button class="btn btn-primary plan-cta w-100" type="button" data-upgrade-button data-default-label="{{ plan.button_label }}">
+                    {{ plan.button_label }}
+                  </button>
+                </form>
+              </article>
+            </div>
+            {% endfor %}
+
+            <div class="col-md-6 col-xl-4">
+              <article class="plan-card plan-card-premium plan-card-custom h-100" data-plan-card data-plan-key="pro_custom">
+                <div class="plan-topline">
+                  <span class="plan-label">Custom</span>
+                  <span class="plan-current-badge muted">Flexible</span>
+                </div>
+                <h3 class="plan-title">Choose exact premium days</h3>
+                <p class="plan-caption mb-2">Pick your own duration with transparent daily pricing.</p>
+                <div class="plan-price">₹{{ '%.2f'|format(custom_daily_rate_rupees) }}/day</div>
+                <div class="plan-per-day">Minimum {{ custom_min_days }} days, maximum {{ custom_max_days }} days</div>
+                <div class="custom-days-helper">Choose your exact premium duration. Final amount updates in real time.</div>
+
+                <div class="custom-quick-chips" aria-label="Quick custom duration">
+                  {% for days in custom_quick_chips %}
+                    <button class="btn btn-sm btn-outline-secondary custom-days-chip" type="button" data-custom-days-chip="{{ days }}">{{ days }} days</button>
+                  {% endfor %}
+                </div>
+
+                <form
+                  method="post"
+                  action="{{ url_for('main.subscribe') }}"
+                  class="razorpay-upgrade-form mt-auto"
+                  data-plan-key="pro_custom"
+                  data-custom-plan="true"
+                  data-daily-rate-paise="{{ custom_daily_rate_paise }}"
                 >
-                <div class="small mt-2 text-success d-none" data-custom-price-display>
-                  Total price: <strong data-custom-price>₹0</strong>
-                </div>
-                <div class="small mt-1 text-muted d-none" data-custom-confirm>
-                  Total price is ₹0. Do you want to pay?
-                </div>
-                <button class="btn btn-primary w-100 mt-3" type="button" data-upgrade-button>Pay custom amount</button>
-              </form>
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="plan_key" value="pro_custom">
+                  <label class="form-label small text-muted" for="customDaysSettings">Custom days</label>
+                  <input
+                    class="form-control"
+                    id="customDaysSettings"
+                    type="number"
+                    name="custom_days"
+                    min="{{ custom_min_days }}"
+                    max="{{ custom_max_days }}"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Enter days (example: 15)"
+                    aria-describedby="customDaysHint"
+                  >
+                  <div class="small text-danger mt-2 d-none" data-custom-error role="alert"></div>
+                  <div class="custom-live-preview mt-2" data-custom-price-display>
+                    <span><strong data-custom-live-days>{{ custom_min_days }}</strong> days</span>
+                    <span>=</span>
+                    <span><strong data-custom-price>₹{{ '%.2f'|format((custom_min_days * custom_daily_rate_paise) / 100) }}</strong></span>
+                  </div>
+                  <div class="small text-muted mt-1" data-custom-confirm id="customDaysHint">
+                    Final payable amount is shown above.
+                  </div>
+                  <button class="btn btn-primary plan-cta w-100 mt-3" type="button" data-upgrade-button data-default-label="Pay Custom Amount">
+                    Pay Custom Amount
+                  </button>
+                </form>
+              </article>
             </div>
           </div>
         </div>
+
+        <div class="billing-transactions-shell">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+            <h3 class="h6 mb-0">Recent transactions</h3>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.billing_transactions') }}">
+              View full history
+            </a>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle billing-history-table mb-0">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Plan</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Reference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for tx in recent_transactions %}
+                <tr>
+                  <td>{{ tx.timestamp.strftime('%d %b %Y %H:%M') if tx.timestamp else '-' }}</td>
+                  <td>
+                    <div class="fw-medium">{{ tx.plan_name }}</div>
+                    <div class="small text-muted">{{ tx.duration_label }}</div>
+                  </td>
+                  <td>{{ tx.amount_paise|money }}</td>
+                  <td><span class="badge text-bg-{{ tx.status_tone }}">{{ tx.status_label }}</span></td>
+                  <td class="small text-break">{{ tx.reference or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="5" class="text-center text-secondary py-3">No premium transactions yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="billing-trust-grid">
+          <article class="billing-trust-card">
+            <i class="bi bi-shield-lock"></i>
+            <h4>Secure payments</h4>
+            <p>All transactions are processed securely via Razorpay.</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-lightning-charge"></i>
+            <h4>Instant activation</h4>
+            <p>Your premium status activates automatically after successful payment.</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-clock-history"></i>
+            <h4>Billing history</h4>
+            <p>Payment records are tracked for easy support and verification.</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-headset"></i>
+            <h4>Need help?</h4>
+            <p>Contact support if checkout fails or you need invoice assistance.</p>
+          </article>
+        </div>
+
+        <div class="billing-faq card border-0 shadow-sm">
+          <div class="card-body">
+            <h3 class="h6 mb-3">Billing FAQs</h3>
+            <div class="accordion accordion-flush" id="billingFaq">
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqActivation" aria-expanded="true" aria-controls="faqActivation">
+                    How is premium activated?
+                  </button>
+                </h4>
+                <div id="faqActivation" class="accordion-collapse collapse show" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Premium activates automatically immediately after a successful Razorpay payment callback.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqRenew" aria-expanded="false" aria-controls="faqRenew">
+                    Can I renew before expiry?
+                  </button>
+                </h4>
+                <div id="faqRenew" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes, you can renew anytime from this billing section to continue premium access without interruption.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqExpiry" aria-expanded="false" aria-controls="faqExpiry">
+                    What happens after premium ends?
+                  </button>
+                </h4>
+                <div id="faqExpiry" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Your account falls back to free tier limits. You can upgrade again anytime from settings.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqSecure" aria-expanded="false" aria-controls="faqSecure">
+                    Is payment secure?
+                  </button>
+                </h4>
+                <div id="faqSecure" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes. Checkout is handled on Razorpay with encrypted payment processing and verified callbacks.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCustom" aria-expanded="false" aria-controls="faqCustom">
+                    Can I buy custom days?
+                  </button>
+                </h4>
+                <div id="faqCustom" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes. Choose custom duration with ₹{{ '%.2f'|format(custom_daily_rate_rupees) }}/day between {{ custom_min_days }} and {{ custom_max_days }} days.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqReferral" aria-expanded="false" aria-controls="faqReferral">
+                    How do referral rewards work?
+                  </button>
+                </h4>
+                <div id="faqReferral" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Use Refer &amp; Earn to invite friends. Premium bonus days are auto-added after successful referral milestones.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a class="billing-refer-banner" href="{{ url_for('main.settings', tab='refer', _anchor='refer-earn') }}">
+          <span class="billing-refer-icon"><i class="bi bi-gift"></i></span>
+          <span class="billing-refer-copy">
+            <strong>Invite friends and earn premium days</strong>
+            <small>Use Refer & Earn to unlock extra premium access.</small>
+          </span>
+          <span class="billing-refer-cta">Open Refer &amp; Earn <i class="bi bi-arrow-right"></i></span>
+        </a>
       </div>
     </section>
 
@@ -210,6 +458,7 @@
 {% block scripts %}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
+window.setupPremiumBillingUI && window.setupPremiumBillingUI();
 window.setupRazorpayUpgrade && window.setupRazorpayUpgrade();
 
 (function () {

@@ -516,6 +516,469 @@
     });
   };
 
+  window.setupAllToolsCatalog = function setupAllToolsCatalog() {
+    const root = document.getElementById("allToolsCatalog");
+    if (!root) {
+      return;
+    }
+    if (root.dataset.catalogReady === "1") {
+      return;
+    }
+    root.dataset.catalogReady = "1";
+
+    const groups = Array.from(root.querySelectorAll("[data-tool-group]"));
+    if (!groups.length) {
+      return;
+    }
+
+    const searchInput = document.getElementById("toolCatalogSearch");
+    const categorySelect = document.getElementById("toolCatalogCategory");
+    const tierSelect = document.getElementById("toolCatalogTier");
+    const onlyFavoritesInput = document.getElementById("toolCatalogOnlyFavorites");
+    const emptyState = document.getElementById("toolCatalogEmpty");
+    const showAllButton = document.querySelector("[data-catalog-show='all']");
+    const collapseAllButton = document.querySelector("[data-catalog-show='collapse']");
+    const jumpButtons = document.querySelectorAll("[data-group-jump]");
+    const singleOpenMedia = window.matchMedia("(max-width: 991.98px)");
+
+    const isSingleOpenMode = () => singleOpenMedia.matches;
+
+    const ensureRendered = (group) => {
+      if (!group || group.dataset.rendered === "1") {
+        return;
+      }
+      const body = group.querySelector("[data-group-body]");
+      const templateId = group.getAttribute("data-template-id") || "";
+      const template = templateId ? document.getElementById(templateId) : null;
+      if (!body || !template) {
+        group.dataset.rendered = "1";
+        return;
+      }
+      body.innerHTML = "";
+      body.appendChild(template.content.cloneNode(true));
+      group.dataset.rendered = "1";
+    };
+
+    const setPanelHeight = (group, open) => {
+      const panel = group.querySelector("[data-group-panel]");
+      if (!panel) {
+        return;
+      }
+      if (open) {
+        panel.style.maxHeight = `${panel.scrollHeight}px`;
+      } else {
+        panel.style.maxHeight = "0px";
+      }
+    };
+
+    const updateGroupCount = (group, count) => {
+      const countNode = group.querySelector("[data-group-visible-count]");
+      if (countNode) {
+        countNode.textContent = String(count);
+      }
+    };
+
+    const closeGroup = (group) => {
+      if (!group || !group.classList.contains("is-open")) {
+        return;
+      }
+      group.classList.remove("is-open");
+      const toggle = group.querySelector("[data-group-toggle]");
+      const panel = group.querySelector("[data-group-panel]");
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", "false");
+      }
+      if (panel) {
+        panel.setAttribute("aria-hidden", "true");
+      }
+      setPanelHeight(group, false);
+    };
+
+    const openGroup = (group, { scroll = false } = {}) => {
+      if (!group) {
+        return;
+      }
+      ensureRendered(group);
+      if (isSingleOpenMode()) {
+        groups.forEach((row) => {
+          if (row !== group) {
+            closeGroup(row);
+          }
+        });
+      }
+      group.classList.add("is-open");
+      const toggle = group.querySelector("[data-group-toggle]");
+      const panel = group.querySelector("[data-group-panel]");
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", "true");
+      }
+      if (panel) {
+        panel.setAttribute("aria-hidden", "false");
+      }
+      setPanelHeight(group, true);
+      if (scroll) {
+        group.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+
+    const toggleGroup = (group) => {
+      if (!group) {
+        return;
+      }
+      if (group.classList.contains("is-open")) {
+        closeGroup(group);
+      } else {
+        openGroup(group);
+      }
+    };
+
+    const matchesCardFilters = (card, filters) => {
+      const searchToken = filters.searchToken;
+      const onlyFavorites = filters.onlyFavorites;
+      const tier = filters.tier;
+
+      const nameToken = (card.getAttribute("data-tool-name") || "").toLowerCase();
+      const categoryToken = (card.getAttribute("data-tool-category") || "").toLowerCase();
+      const tierToken = (card.getAttribute("data-tool-tier") || "free").toLowerCase();
+      const isFavorite = card.getAttribute("data-tool-favorite") === "1";
+
+      const searchMatch = !searchToken || nameToken.includes(searchToken) || categoryToken.includes(searchToken);
+      const tierMatch = tier === "all" || tierToken === tier;
+      const favoritesMatch = !onlyFavorites || isFavorite;
+      return searchMatch && tierMatch && favoritesMatch;
+    };
+
+    const applyFilters = () => {
+      const filters = {
+        searchToken: (searchInput && searchInput.value ? searchInput.value : "").trim().toLowerCase(),
+        selectedCategory: (categorySelect && categorySelect.value ? categorySelect.value : "all").trim(),
+        tier: (tierSelect && tierSelect.value ? tierSelect.value : "all").trim(),
+        onlyFavorites: Boolean(onlyFavoritesInput && onlyFavoritesInput.checked),
+      };
+      const hasCardFilters = Boolean(filters.searchToken || filters.tier !== "all" || filters.onlyFavorites);
+
+      let visibleGroups = 0;
+      groups.forEach((group) => {
+        const groupId = group.getAttribute("data-group-id") || "";
+        const totalCount = Number.parseInt(group.getAttribute("data-total-count") || "0", 10) || 0;
+        const categoryMatch = filters.selectedCategory === "all" || filters.selectedCategory === groupId;
+        if (!categoryMatch) {
+          group.classList.add("d-none");
+          closeGroup(group);
+          return;
+        }
+
+        if (!hasCardFilters) {
+          if (group.dataset.rendered === "1") {
+            group.querySelectorAll("[data-tool-card].d-none").forEach((card) => {
+              card.classList.remove("d-none");
+            });
+          }
+          group.classList.remove("d-none");
+          updateGroupCount(group, totalCount);
+          if (group.classList.contains("is-open")) {
+            setPanelHeight(group, true);
+          }
+          visibleGroups += 1;
+          return;
+        }
+
+        ensureRendered(group);
+        const cards = Array.from(group.querySelectorAll("[data-tool-card]"));
+        let visibleCards = 0;
+        cards.forEach((card) => {
+          const isVisible = matchesCardFilters(card, filters);
+          card.classList.toggle("d-none", !isVisible);
+          if (isVisible) {
+            visibleCards += 1;
+          }
+        });
+        updateGroupCount(group, visibleCards);
+        const groupVisible = visibleCards > 0;
+        group.classList.toggle("d-none", !groupVisible);
+        if (!groupVisible) {
+          closeGroup(group);
+          return;
+        }
+        visibleGroups += 1;
+        if (group.classList.contains("is-open")) {
+          setPanelHeight(group, true);
+        }
+      });
+
+      if (emptyState) {
+        emptyState.classList.toggle("d-none", visibleGroups > 0);
+      }
+
+      if (filters.selectedCategory !== "all") {
+        const selectedGroup = groups.find((group) => group.getAttribute("data-group-id") === filters.selectedCategory);
+        if (selectedGroup && !selectedGroup.classList.contains("d-none")) {
+          openGroup(selectedGroup);
+        }
+      }
+    };
+
+    groups.forEach((group) => {
+      const isDefaultOpen = group.getAttribute("data-default-open") === "1";
+      const panel = group.querySelector("[data-group-panel]");
+      if (panel) {
+        panel.setAttribute("aria-hidden", isDefaultOpen ? "false" : "true");
+      }
+      if (!isDefaultOpen) {
+        closeGroup(group);
+      } else {
+        ensureRendered(group);
+        openGroup(group);
+      }
+
+      const toggle = group.querySelector("[data-group-toggle]");
+      if (toggle) {
+        toggle.addEventListener("click", () => {
+          toggleGroup(group);
+        });
+      }
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener("input", applyFilters);
+    }
+    if (categorySelect) {
+      categorySelect.addEventListener("change", applyFilters);
+    }
+    if (tierSelect) {
+      tierSelect.addEventListener("change", applyFilters);
+    }
+    if (onlyFavoritesInput) {
+      onlyFavoritesInput.addEventListener("change", applyFilters);
+    }
+
+    if (showAllButton) {
+      showAllButton.addEventListener("click", () => {
+        if (isSingleOpenMode()) {
+          const firstVisible = groups.find((group) => !group.classList.contains("d-none"));
+          if (firstVisible) {
+            openGroup(firstVisible, { scroll: true });
+          }
+          return;
+        }
+        groups.forEach((group) => {
+          if (group.classList.contains("d-none")) {
+            return;
+          }
+          ensureRendered(group);
+          openGroup(group);
+        });
+      });
+    }
+
+    if (collapseAllButton) {
+      collapseAllButton.addEventListener("click", () => {
+        groups.forEach((group) => closeGroup(group));
+      });
+    }
+
+    jumpButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetId = button.getAttribute("data-group-jump") || "";
+        const targetGroup = groups.find((group) => group.getAttribute("data-group-id") === targetId);
+        if (!targetGroup) {
+          return;
+        }
+        if (categorySelect && categorySelect.value !== "all" && categorySelect.value !== targetId) {
+          categorySelect.value = "all";
+          applyFilters();
+        }
+        openGroup(targetGroup, { scroll: true });
+      });
+    });
+
+    singleOpenMedia.addEventListener("change", () => {
+      if (!isSingleOpenMode()) {
+        return;
+      }
+      const openVisible = groups.filter(
+        (group) => group.classList.contains("is-open") && !group.classList.contains("d-none")
+      );
+      if (openVisible.length <= 1) {
+        return;
+      }
+      openVisible.slice(1).forEach((group) => closeGroup(group));
+    });
+
+    applyFilters();
+  };
+
+  window.setupPremiumBillingUI = function setupPremiumBillingUI() {
+    const billingSection = document.getElementById("billing");
+    if (!billingSection) {
+      return;
+    }
+    if (billingSection.dataset.billingUiReady === "1") {
+      return;
+    }
+    billingSection.dataset.billingUiReady = "1";
+
+    const planCards = Array.from(billingSection.querySelectorAll("[data-plan-card]"));
+    if (!planCards.length) {
+      return;
+    }
+    const storageKey = "pdfmaster-selected-plan";
+    const selectPlan = (planKey, options = {}) => {
+      if (!planKey) {
+        return;
+      }
+      planCards.forEach((card) => {
+        const isMatch = card.getAttribute("data-plan-key") === planKey;
+        card.classList.toggle("is-selected", isMatch);
+      });
+      if (options.persist !== false) {
+        try {
+          localStorage.setItem(storageKey, planKey);
+        } catch (error) {
+          // Ignore storage errors in privacy-restricted contexts.
+        }
+      }
+      if (options.scroll) {
+        const target = planCards.find((card) => card.getAttribute("data-plan-key") === planKey);
+        target && target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    };
+
+    planCards.forEach((card) => {
+      const planKey = card.getAttribute("data-plan-key");
+      if (!planKey) {
+        return;
+      }
+      card.addEventListener("click", () => {
+        selectPlan(planKey);
+      });
+      const actionButton = card.querySelector("[data-upgrade-button]");
+      if (actionButton) {
+        actionButton.addEventListener("focus", () => {
+          selectPlan(planKey);
+        });
+      }
+    });
+
+    const focusButtons = billingSection.querySelectorAll("[data-plan-focus]");
+    focusButtons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const planKey = button.getAttribute("data-plan-focus");
+        selectPlan(planKey, { scroll: true });
+        const hashTarget = document.getElementById("billing-plans");
+        hashTarget && hashTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    let initialPlanKey = "";
+    try {
+      initialPlanKey = localStorage.getItem(storageKey) || "";
+    } catch (error) {
+      initialPlanKey = "";
+    }
+    if (!initialPlanKey || !planCards.some((card) => card.getAttribute("data-plan-key") === initialPlanKey)) {
+      const recommended = planCards.find((card) => card.getAttribute("data-plan-recommended") === "true");
+      const activeCard = planCards.find((card) => card.classList.contains("is-active-plan"));
+      initialPlanKey = (activeCard && activeCard.getAttribute("data-plan-key")) || (recommended && recommended.getAttribute("data-plan-key")) || planCards[0].getAttribute("data-plan-key");
+    }
+    selectPlan(initialPlanKey, { persist: false });
+
+    const customForm = billingSection.querySelector("form.razorpay-upgrade-form[data-custom-plan='true']");
+    if (!customForm) {
+      return;
+    }
+    const customCard = customForm.closest("[data-plan-card]");
+    const customDaysInput = customForm.querySelector("input[name='custom_days']");
+    const customError = customForm.querySelector("[data-custom-error]");
+    const customPriceDisplay = customForm.querySelector("[data-custom-price-display]");
+    const customPriceText = customForm.querySelector("[data-custom-price]");
+    const customDaysLiveText = customForm.querySelector("[data-custom-live-days]");
+    const customConfirmText = customForm.querySelector("[data-custom-confirm]");
+    const customSubmitButton = customForm.querySelector("[data-upgrade-button]");
+    const quickChips = customCard ? customCard.querySelectorAll("[data-custom-days-chip]") : [];
+    if (!customDaysInput || !customSubmitButton) {
+      return;
+    }
+
+    const minDays = Number.parseInt(customDaysInput.getAttribute("min") || "1", 10);
+    const maxDays = Number.parseInt(customDaysInput.getAttribute("max") || "365", 10);
+    const dailyRatePaise = Number.parseInt(customForm.getAttribute("data-daily-rate-paise") || "100", 10);
+    const formatRupees = (value) => {
+      return Number.isInteger(value) ? `₹${value}` : `₹${value.toFixed(2)}`;
+    };
+
+    const parseCustomDays = () => {
+      const sanitized = (customDaysInput.value || "").replace(/[^\d]/g, "");
+      if (customDaysInput.value !== sanitized) {
+        customDaysInput.value = sanitized;
+      }
+      if (!sanitized) {
+        return { valid: false, message: "", days: 0 };
+      }
+      const parsedDays = Number.parseInt(sanitized, 10);
+      if (!Number.isFinite(parsedDays)) {
+        return { valid: false, message: "Please enter a valid number.", days: 0 };
+      }
+      if (parsedDays < minDays || parsedDays > maxDays) {
+        return {
+          valid: false,
+          message: `Enter days between ${minDays} and ${maxDays}.`,
+          days: parsedDays,
+        };
+      }
+      return { valid: true, message: "", days: parsedDays };
+    };
+
+    const renderCustomPreview = () => {
+      const parsed = parseCustomDays();
+      const fallbackDays = minDays;
+      const previewDays = parsed.valid ? parsed.days : (parsed.days || fallbackDays);
+      const amount = previewDays * (dailyRatePaise / 100);
+      if (customPriceDisplay) {
+        customPriceDisplay.classList.remove("d-none");
+      }
+      if (customDaysLiveText) {
+        customDaysLiveText.textContent = String(previewDays);
+      }
+      if (customPriceText) {
+        customPriceText.textContent = formatRupees(amount);
+      }
+      if (customConfirmText) {
+        customConfirmText.textContent = `Final payable amount: ${formatRupees(amount)} for ${previewDays} day${previewDays === 1 ? "" : "s"}.`;
+      }
+      customSubmitButton.disabled = !parsed.valid;
+      customDaysInput.setAttribute("aria-invalid", parsed.valid ? "false" : "true");
+      if (customError) {
+        const showError = Boolean(parsed.message && customDaysInput.value.trim());
+        customError.classList.toggle("d-none", !showError);
+        customError.textContent = showError ? parsed.message : "";
+      }
+      return parsed;
+    };
+
+    quickChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const nextDays = chip.getAttribute("data-custom-days-chip") || "";
+        customDaysInput.value = nextDays;
+        renderCustomPreview();
+        selectPlan("pro_custom");
+      });
+    });
+
+    customDaysInput.addEventListener("focus", () => {
+      selectPlan("pro_custom");
+    });
+    customDaysInput.addEventListener("input", () => {
+      renderCustomPreview();
+      if (customDaysInput.value.trim()) {
+        selectPlan("pro_custom");
+      }
+    });
+
+    renderCustomPreview();
+  };
+
   window.setupRazorpayUpgrade = function setupRazorpayUpgrade() {
     const forms = document.querySelectorAll("form.razorpay-upgrade-form");
     if (!forms.length) {
@@ -527,49 +990,91 @@
       return `${fallback}${encodeURIComponent(message || "Payment could not be started.")}`;
     };
 
+    const formatRupees = (value) => {
+      return Number.isInteger(value) ? `₹${value}` : `₹${value.toFixed(2)}`;
+    };
+
     forms.forEach((form) => {
+      if (form.dataset.razorpayBound === "1") {
+        return;
+      }
+      form.dataset.razorpayBound = "1";
+
       const button = form.querySelector("[data-upgrade-button]");
       if (!button) {
         return;
       }
+      const defaultLabel = button.getAttribute("data-default-label") || (button.textContent || "").trim() || "Activate plan";
       const customDaysInput = form.querySelector("input[name='custom_days']");
-      const customPriceDisplay = form.querySelector("[data-custom-price-display]");
-      const customPriceText = form.querySelector("[data-custom-price]");
-      const customConfirmText = form.querySelector("[data-custom-confirm]");
+      const customError = form.querySelector("[data-custom-error]");
+      const dailyRatePaise = Number.parseInt(form.getAttribute("data-daily-rate-paise") || "100", 10);
+      const minDays = Number.parseInt((customDaysInput && customDaysInput.getAttribute("min")) || "1", 10);
+      const maxDays = Number.parseInt((customDaysInput && customDaysInput.getAttribute("max")) || "3650", 10);
+      let inFlight = false;
 
-      const updateCustomPrice = () => {
+      const setButtonState = (state, label) => {
+        if (state === "loading") {
+          button.disabled = true;
+          button.classList.add("is-loading");
+          button.textContent = label || "Opening checkout...";
+          return;
+        }
+        button.classList.remove("is-loading");
+        if (state === "success") {
+          button.disabled = true;
+          button.classList.add("btn-success");
+          button.textContent = label || "Checkout opened";
+          return;
+        }
+        button.classList.remove("btn-success");
+        button.textContent = defaultLabel;
         if (!customDaysInput) {
+          button.disabled = false;
           return;
         }
-        const parsedDays = Number.parseInt((customDaysInput.value || "").trim(), 10);
-        const isValid = Number.isFinite(parsedDays) && parsedDays > 0;
-        if (!isValid) {
-          customPriceDisplay && customPriceDisplay.classList.add("d-none");
-          customConfirmText && customConfirmText.classList.add("d-none");
-          if (customPriceText) {
-            customPriceText.textContent = "₹0";
-          }
-          if (customConfirmText) {
-            customConfirmText.textContent = "Total price is ₹0. Do you want to pay?";
-          }
-          return;
+        const parsed = parseCustomDays();
+        button.disabled = !parsed.valid;
+      };
+
+      const parseCustomDays = () => {
+        if (!customDaysInput) {
+          return { valid: true, days: null, message: "" };
         }
-        if (customPriceText) {
-          customPriceText.textContent = `₹${parsedDays}`;
+        const sanitized = (customDaysInput.value || "").replace(/[^\d]/g, "");
+        if (customDaysInput.value !== sanitized) {
+          customDaysInput.value = sanitized;
         }
-        if (customConfirmText) {
-          customConfirmText.textContent = `Total price is ₹${parsedDays}. Do you want to pay?`;
+        if (!sanitized) {
+          return { valid: false, days: null, message: `Enter days between ${minDays} and ${maxDays}.` };
         }
-        customPriceDisplay && customPriceDisplay.classList.remove("d-none");
-        customConfirmText && customConfirmText.classList.remove("d-none");
+        const parsed = Number.parseInt(sanitized, 10);
+        if (!Number.isFinite(parsed)) {
+          return { valid: false, days: null, message: "Please enter a valid number of days." };
+        }
+        if (parsed < minDays || parsed > maxDays) {
+          return { valid: false, days: parsed, message: `Enter days between ${minDays} and ${maxDays}.` };
+        }
+        return { valid: true, days: parsed, message: "" };
       };
 
       if (customDaysInput) {
-        customDaysInput.addEventListener("input", updateCustomPrice);
-        updateCustomPrice();
+        customDaysInput.addEventListener("input", () => {
+          const parsed = parseCustomDays();
+          if (customError) {
+            const showError = Boolean(parsed.message && customDaysInput.value.trim());
+            customError.classList.toggle("d-none", !showError);
+            customError.textContent = showError ? parsed.message : "";
+          }
+          button.disabled = !parsed.valid;
+        });
       }
 
+      setButtonState("idle");
+
       button.addEventListener("click", async () => {
+        if (inFlight) {
+          return;
+        }
         const submitUrl = form.getAttribute("action");
         const csrf = (form.querySelector("input[name='csrf_token']") || {}).value || "";
         const planKey = (form.querySelector("input[name='plan_key']") || {}).value || "";
@@ -578,26 +1083,31 @@
           window.location.href = toStatusUrl("Plan details are missing.");
           return;
         }
+
         if (customDaysInput) {
-          const parsedDays = Number.parseInt((customDaysInput.value || "").trim(), 10);
-          if (!Number.isFinite(parsedDays) || parsedDays <= 0) {
-            window.location.href = toStatusUrl("Please enter valid custom days.");
+          const parsed = parseCustomDays();
+          if (!parsed.valid) {
+            if (customError) {
+              customError.classList.remove("d-none");
+              customError.textContent = parsed.message;
+            }
+            customDaysInput.focus();
             return;
           }
-          customDaysValue = parsedDays;
-          const confirmed = window.confirm(`Total price is ₹${parsedDays}. Do you want to pay?`);
-          if (!confirmed) {
-            return;
+          customDaysValue = parsed.days;
+          if (customError) {
+            customError.classList.add("d-none");
           }
         }
+
         if (typeof window.Razorpay === "undefined") {
           window.location.href = toStatusUrl("Razorpay checkout failed to load.");
           return;
         }
 
-        const originalLabel = button.textContent;
-        button.disabled = true;
-        button.textContent = "Opening checkout...";
+        inFlight = true;
+        setButtonState("loading", "Opening checkout...");
+        let checkoutOpened = false;
         try {
           const body = new URLSearchParams();
           body.append("plan_key", planKey);
@@ -605,6 +1115,7 @@
             body.append("custom_days", String(customDaysValue));
           }
           body.append("csrf_token", csrf);
+
           const response = await fetch(submitUrl, {
             method: "POST",
             headers: {
@@ -633,18 +1144,29 @@
             },
             modal: {
               ondismiss: function onDismiss() {
-                window.location.href = payload.status_url_on_dismiss || toStatusUrl("Payment was cancelled.");
+                const fallbackMessage = customDaysValue
+                  ? `Payment cancelled for ${customDaysValue} days (${formatRupees(customDaysValue * (dailyRatePaise / 100))}).`
+                  : "Payment was cancelled.";
+                window.location.href = payload.status_url_on_dismiss || toStatusUrl(fallbackMessage);
               },
             },
           });
           checkout.open();
+          checkoutOpened = true;
         } catch (error) {
           const message = (error && error.message) || "Payment could not be started.";
           window.location.href = toStatusUrl(message);
           return;
         } finally {
-          button.disabled = false;
-          button.textContent = originalLabel || "Activate plan";
+          inFlight = false;
+          if (checkoutOpened) {
+            setButtonState("success", "Checkout opened");
+            window.setTimeout(() => {
+              setButtonState("idle");
+            }, 1300);
+          } else {
+            setButtonState("idle");
+          }
         }
       });
     });

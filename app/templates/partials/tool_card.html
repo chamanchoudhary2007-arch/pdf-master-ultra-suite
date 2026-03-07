@@ -1,4 +1,12 @@
-<div class="col">
+<div
+  class="col tool-card-col"
+  data-tool-card
+  data-tool-key="{{ tool.tool_key }}"
+  data-tool-name="{{ (tool.name ~ ' ' ~ tool.description ~ ' ' ~ tool.category)|lower }}"
+  data-tool-category="{{ (tool.category or '')|lower }}"
+  data-tool-tier="{{ 'pro' if (tool.is_subscription_only or ((tool.price_paise or 0) > 0 and tool.is_payperuse_allowed)) else 'free' }}"
+  data-tool-favorite="{{ '1' if tool.tool_key in favorite_keys|default([]) else '0' }}"
+>
   <div class="card h-100 tool-card shadow-sm border-0">
     <div class="card-body d-flex flex-column">
       {% set premium_locked = tool.is_subscription_only and not (is_premium_user|default(false) or (current_user.is_authenticated and current_user.is_admin)) %}

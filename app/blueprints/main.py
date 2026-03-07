@@ -36,8 +36,6 @@ from app.services import (
 )
 
 main_bp = Blueprint("main", __name__)
-
-
 @main_bp.route("/google-login")
 def google_login_entry():
     from app.blueprints.auth import google_login
@@ -361,22 +359,80 @@ def dashboard():
 @login_required
 def settings():
     active_subscription = SubscriptionService.active_subscription_for_user(current_user.id)
+    plan_catalog = SubscriptionService.plan_catalog()
+    active_subscription_summary = (
+        SubscriptionService.subscription_status_summary(active_subscription)
+        if active_subscription
+        else None
+    )
+    active_plan_key = (
+        active_subscription_summary.get("plan_key")
+        if active_subscription_summary
+        else None
+    )
+    plan_view_models = SubscriptionService.plan_view_models(active_plan_key=active_plan_key)
     referral_code = AuthService.ensure_user_referral_code(current_user)
     referral_step = AuthService.REFERRAL_REWARD_STEP
     total_referrals = int(current_user.total_referrals or 0)
     referrals_to_next_reward = referral_step - (total_referrals % referral_step)
     referral_progress_percent = int(((total_referrals % referral_step) / referral_step) * 100)
     share_link = url_for("main.landing", _external=True)
+    custom_daily_rate_paise = SubscriptionService.custom_daily_rate_paise()
+    custom_min_days, custom_max_days = SubscriptionService.custom_days_range()
+    custom_quick_chips = [
+        day
+        for day in SubscriptionService.CUSTOM_QUICK_CHIPS
+        if custom_min_days <= day <= custom_max_days
+    ]
+    recent_transactions = SubscriptionService.list_user_transactions(current_user.id, limit=8)
+
     return render_template(
         "settings.html",
         active_subscription=active_subscription,
-        plan_catalog=SubscriptionService.plan_catalog(),
+        active_subscription_summary=active_subscription_summary,
+        plan_catalog=plan_catalog,
+        plan_view_models=plan_view_models,
+        premium_benefits=SubscriptionService.PREMIUM_BENEFITS,
+        active_price_profile=SubscriptionService.active_price_profile_key(),
+        expiring_soon_days=SubscriptionService.expiring_soon_days(),
         referral_code=referral_code,
         total_referrals=total_referrals,
         referral_step=referral_step,
         referrals_to_next_reward=referrals_to_next_reward,
         referral_progress_percent=referral_progress_percent,
         share_link=share_link,
+        recent_transactions=recent_transactions,
+        custom_daily_rate_paise=custom_daily_rate_paise,
+        custom_daily_rate_rupees=custom_daily_rate_paise / 100,
+        custom_min_days=custom_min_days,
+        custom_max_days=custom_max_days,
+        custom_quick_chips=custom_quick_chips,
+    )
+
+
+@main_bp.route("/settings/billing/transactions")
+@login_required
+def billing_transactions():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    per_page = min(max(per_page or 20, 10), 100)
+    pagination, transactions = SubscriptionService.paginated_user_transactions(
+        current_user.id,
+        page=page or 1,
+        per_page=per_page,
+    )
+    active_subscription = SubscriptionService.active_subscription_for_user(current_user.id)
+    active_subscription_summary = (
+        SubscriptionService.subscription_status_summary(active_subscription)
+        if active_subscription
+        else None
+    )
+    return render_template(
+        "billing_transactions.html",
+        transactions=transactions,
+        pagination=pagination,
+        per_page=per_page,
+        active_subscription_summary=active_subscription_summary,
     )
 
 
@@ -427,6 +483,56 @@ def all_tools():
 
     def pick(keys: list[str]) -> list[ToolCatalog]:
         return [tool_map[key] for key in keys if key in tool_map]
+
+    group_key_map = {
+        "Favorites": "favorites",
+        "Frequently used": "frequently-used",
+        "Convert to PDF": "convert-to-pdf",
+        "Convert from PDF": "convert-from-pdf",
+        "Organize PDF": "organize-pdf",
+        "Edit PDF": "edit-pdf",
+        "Security + OCR": "security-ocr",
+        "More": "more",
+        "Desktop": "desktop",
+    }
+    group_meta = {
+        "favorites": {
+            "icon": "bi-star-fill",
+            "description": "Your pinned tools for one-tap access.",
+        },
+        "frequently-used": {
+            "icon": "bi-clock-history",
+            "description": "Recently used tools for faster repeat workflows.",
+        },
+        "convert-to-pdf": {
+            "icon": "bi-file-earmark-plus",
+            "description": "Bring Office, images, and scans into PDF format.",
+        },
+        "convert-from-pdf": {
+            "icon": "bi-arrow-repeat",
+            "description": "Export PDF content into editable formats quickly.",
+        },
+        "organize-pdf": {
+            "icon": "bi-diagram-3",
+            "description": "Merge, split, reorder, and structure PDF pages.",
+        },
+        "edit-pdf": {
+            "icon": "bi-pencil-square",
+            "description": "Edit text, layout, signatures, and page appearance.",
+        },
+        "security-ocr": {
+            "icon": "bi-shield-lock",
+            "description": "Protect files, unlock PDFs, and run OCR operations.",
+        },
+        "more": {
+            "icon": "bi-grid-3x3-gap",
+            "description": "AI, office, and specialized productivity tools.",
+        },
+        "desktop": {
+            "icon": "bi-laptop",
+            "description": "Cloud, sharing, and scanner workspace utilities.",
+        },
+    }
 
     section_data = [
         ("Favorites", pick(favorite_keys)),
@@ -569,14 +675,41 @@ def all_tools():
             ),
         ),
     ]
-    sections = [
-        {"title": title, "anchor": title.lower().replace(" ", "-"), "tools": section_tools}
-        for title, section_tools in section_data
-        if section_tools
-    ]
+
+    featured_sections: list[dict] = []
+    tool_groups: list[dict] = []
+    for title, section_tools in section_data:
+        if not section_tools:
+            continue
+        section_id = group_key_map.get(title, title.lower().replace(" ", "-"))
+        meta = group_meta.get(section_id, {})
+        group = {
+            "id": section_id,
+            "title": title,
+            "tools": section_tools,
+            "icon": meta.get("icon", "bi-grid-3x3-gap"),
+            "description": meta.get("description", "Browse related tools."),
+            "search_index": " ".join(
+                [
+                    title,
+                    *[tool.name for tool in section_tools],
+                    *[tool.description for tool in section_tools],
+                ]
+            ).lower(),
+        }
+        if section_id in {"favorites", "frequently-used"}:
+            featured_sections.append(group)
+        else:
+            tool_groups.append(group)
+
+    for group in tool_groups:
+        group["default_open"] = False
+
     return render_template(
         "all_tools.html",
-        sections=sections,
+        featured_sections=featured_sections,
+        tool_groups=tool_groups,
+        total_tool_count=len(tools),
         favorite_keys=favorite_keys,
     )
 

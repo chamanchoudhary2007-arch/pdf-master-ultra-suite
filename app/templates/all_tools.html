@@ -6,37 +6,177 @@
     <div>
       <span class="eyebrow">Premium Workspace</span>
       <h1 class="h2 mb-1">All Tools</h1>
-      <p class="text-secondary mb-0">Browse complete tool collections by workflow. Favorites and recent tools stay pinned for faster access.</p>
+      <p class="text-secondary mb-0">
+        Browse by category first. Open only the section you need to keep the workspace clean and focused.
+      </p>
     </div>
-    <div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="price-chip">{{ total_tool_count }} tools</span>
       {% if is_premium_user %}
       <span class="price-chip premium-chip"><i class="bi bi-gem me-1"></i>Premium Active</span>
       {% else %}
-      <span class="price-chip"><i class="bi bi-lightning-charge me-1"></i>Upgrade for full premium feel</span>
+      <span class="price-chip"><i class="bi bi-lightning-charge me-1"></i>Upgrade for full premium access</span>
       {% endif %}
     </div>
   </div>
 </section>
 
+<section class="card border-0 shadow-sm all-tools-controls mb-4">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-xl-4 col-md-6">
+        <label class="form-label small text-muted mb-1" for="toolCatalogSearch">Search tools</label>
+        <input class="form-control" id="toolCatalogSearch" type="search" placeholder="Search by tool name or task">
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <label class="form-label small text-muted mb-1" for="toolCatalogCategory">Filter by category</label>
+        <select class="form-select" id="toolCatalogCategory">
+          <option value="all">All categories</option>
+          {% for group in tool_groups %}
+          <option value="{{ group.id }}">{{ group.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small text-muted mb-1" for="toolCatalogTier">Tier</label>
+        <select class="form-select" id="toolCatalogTier">
+          <option value="all">All tools</option>
+          <option value="free">Only free</option>
+          <option value="pro">Only pro</option>
+        </select>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="d-flex gap-2 flex-wrap justify-content-md-end">
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-catalog-show="all">Show all</button>
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-catalog-show="collapse">Collapse all</button>
+          <div class="form-check form-switch ms-md-1">
+            <input class="form-check-input" type="checkbox" role="switch" id="toolCatalogOnlyFavorites">
+            <label class="form-check-label small" for="toolCatalogOnlyFavorites">Only favorites</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="mb-4">
-  <div class="d-flex flex-wrap gap-2 all-tools-nav">
-    {% for section in sections %}
-    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="#{{ section.anchor }}">{{ section.title }}</a>
+  <div class="all-tools-nav all-tools-nav-scroll">
+    {% for group in tool_groups %}
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-group-jump="{{ group.id }}">
+      <i class="bi {{ group.icon }} me-1"></i>{{ group.title }}
+    </button>
     {% endfor %}
   </div>
 </section>
 
-{% for section in sections %}
-<section class="mb-5" id="{{ section.anchor }}">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="h4 mb-0">{{ section.title }}</h2>
-    <span class="text-secondary small">{{ section.tools|length }} tools</span>
-  </div>
-  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3">
-    {% for tool in section.tools %}
-      {% include 'partials/tool_card.html' with context %}
+{% if featured_sections %}
+<section class="mb-4 featured-groups-wrap">
+  <div class="row g-3">
+    {% for section in featured_sections %}
+    <div class="col-lg-6">
+      <article class="featured-group-card h-100">
+        <div class="featured-group-head">
+          <div class="featured-group-icon"><i class="bi {{ section.icon }}"></i></div>
+          <div>
+            <h2 class="h6 mb-1">{{ section.title }}</h2>
+            <p class="small text-secondary mb-0">{{ section.description }}</p>
+          </div>
+          <span class="badge text-bg-light">{{ section.tools|length }}</span>
+        </div>
+        <div class="featured-tools-list">
+          {% for tool in section.tools[:8] %}
+          {% set premium_locked = tool.is_subscription_only and not (is_premium_user|default(false) or (current_user.is_authenticated and current_user.is_admin)) %}
+          {% set action_url = billing_settings_url if premium_locked else url_for('tools.tool_detail', tool_key=tool.tool_key) %}
+          <a
+            class="featured-tool-pill {{ 'is-pro' if tool.is_subscription_only else '' }}"
+            href="{{ action_url }}"
+            {% if premium_locked %}data-billing-redirect{% endif %}
+            title="{{ tool.description }}"
+          >
+            <i class="bi {{ tool.icon_name }}"></i>
+            <span>{{ tool.name }}</span>
+            {% if tool.is_subscription_only %}
+            <i class="bi bi-lock-fill featured-lock"></i>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </article>
+    </div>
     {% endfor %}
   </div>
 </section>
-{% endfor %}
+{% endif %}
+
+<section id="allToolsCatalog" class="tool-group-accordion mb-4">
+  {% for group in tool_groups %}
+  <article
+    class="tool-group-card {{ 'is-open' if group.default_open else '' }}"
+    data-tool-group
+    data-group-id="{{ group.id }}"
+    data-total-count="{{ group.tools|length }}"
+    data-search-index="{{ group.search_index }}"
+    data-template-id="{{ group.id }}-template"
+    data-default-open="{{ '1' if group.default_open else '0' }}"
+  >
+    <button
+      class="tool-group-header"
+      id="{{ group.id }}-toggle"
+      type="button"
+      data-group-toggle
+      aria-expanded="{{ 'true' if group.default_open else 'false' }}"
+      aria-controls="{{ group.id }}-panel"
+    >
+      <span class="tool-group-icon"><i class="bi {{ group.icon }}"></i></span>
+      <span class="tool-group-meta">
+        <span class="tool-group-title">{{ group.title }}</span>
+        <span class="tool-group-description">{{ group.description }}</span>
+      </span>
+      <span class="tool-group-end">
+        <span class="tool-group-count-pill"><strong data-group-visible-count>{{ group.tools|length }}</strong> tools</span>
+        <i class="bi bi-chevron-down tool-group-chevron" data-group-chevron></i>
+      </span>
+    </button>
+    <div
+      class="tool-group-panel {{ 'is-open' if group.default_open else '' }}"
+      id="{{ group.id }}-panel"
+      role="region"
+      aria-labelledby="{{ group.id }}-toggle"
+      data-group-panel
+    >
+      <div class="tool-group-panel-inner" data-group-body>
+        {% if group.default_open %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3">
+          {% for tool in group.tools %}
+            {% include 'partials/tool_card.html' with context %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="tool-group-placeholder" data-group-placeholder>
+          Open this category to view related tools.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% if not group.default_open %}
+    <template id="{{ group.id }}-template" data-group-template>
+      <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3">
+        {% for tool in group.tools %}
+          {% include 'partials/tool_card.html' with context %}
+        {% endfor %}
+      </div>
+    </template>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+<section class="catalog-empty-state d-none" id="toolCatalogEmpty" aria-live="polite">
+  <i class="bi bi-search me-1"></i>No tools match the current filters. Try clearing search or selecting another category.
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+window.setupAllToolsCatalog && window.setupAllToolsCatalog();
+</script>
 {% endblock %}

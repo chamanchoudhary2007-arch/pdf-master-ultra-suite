@@ -64,6 +64,18 @@ class User(UserMixin, TimestampMixin, db.Model):
     subscriptions = db.relationship(
         "UserSubscription", back_populates="user", lazy="dynamic"
     )
+    subscription_events = db.relationship(
+        "SubscriptionEvent",
+        foreign_keys="SubscriptionEvent.user_id",
+        back_populates="user",
+        lazy="dynamic",
+    )
+    acted_subscription_events = db.relationship(
+        "SubscriptionEvent",
+        foreign_keys="SubscriptionEvent.actor_id",
+        back_populates="actor",
+        lazy="dynamic",
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -257,6 +269,25 @@ class UserSubscription(TimestampMixin, db.Model):
     metadata_json = db.Column(db.JSON, default=dict, nullable=False)
 
     user = db.relationship("User", back_populates="subscriptions")
+
+
+class SubscriptionEvent(TimestampMixin, db.Model):
+    __tablename__ = "subscription_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    event_type = db.Column(db.String(40), nullable=False, index=True)
+    source = db.Column(db.String(40), nullable=False, default="system", index=True)
+    delta_days = db.Column(db.Integer, nullable=False, default=0)
+    previous_expiry = db.Column(db.DateTime(timezone=True))
+    new_expiry = db.Column(db.DateTime(timezone=True))
+    payment_ref = db.Column(db.String(120), nullable=False, default="", index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    notes = db.Column(db.String(255), nullable=False, default="")
+    metadata_json = db.Column(db.JSON, nullable=False, default=dict)
+
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="subscription_events")
+    actor = db.relationship("User", foreign_keys=[actor_id], back_populates="acted_subscription_events")
 
 
 class ActivityLog(TimestampMixin, db.Model):
