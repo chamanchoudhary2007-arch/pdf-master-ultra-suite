@@ -23,8 +23,8 @@ app = create_app(config_name)
 
 
 if __name__ == "__main__":
-    host = os.environ.get("FLASK_RUN_HOST", "127.0.0.1")
-    port = int(os.environ.get("FLASK_RUN_PORT", "5000"))
+    host = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", os.environ.get("FLASK_RUN_PORT", "5000")))
     debug_default = config_name == "development"
     debug = _env_flag("FLASK_DEBUG", debug_default)
     app.run(host=host, port=port, debug=debug)
