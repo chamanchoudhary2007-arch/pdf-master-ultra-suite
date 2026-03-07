@@ -100,6 +100,12 @@ class Config:
         )
         or "https://accounts.google.com/.well-known/openid-configuration"
     ).strip()
+    ADMIN_EMAIL = (
+        os.environ.get("ADMIN_EMAIL", "pdfmasterultrasuite@gmail.com")
+        or "pdfmasterultrasuite@gmail.com"
+    ).strip().lower()
+    ADMIN_ALLOWED_EMAILS = (os.environ.get("ADMIN_ALLOWED_EMAILS", "") or "").strip()
+    ADMIN_SEED_EMAIL = (os.environ.get("ADMIN_SEED_EMAIL", "") or "").strip().lower()
     RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "").strip()
     RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
     RAZORPAY_CURRENCY = (os.environ.get("RAZORPAY_CURRENCY", "INR") or "INR").strip().upper()

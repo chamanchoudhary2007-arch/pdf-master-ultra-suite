@@ -1040,6 +1040,7 @@ def seed_admin_user() -> None:
         )
     admin_email = (
         (os.environ.get("ADMIN_SEED_EMAIL", "") or "").strip().lower()
+        or (os.environ.get("ADMIN_EMAIL", "") or "").strip().lower()
         or first_allowed_admin
         or "admin@pdfmaster.local"
     )

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 import pytz
-from flask import abort, current_app, request
+from flask import abort, current_app, request, session
 from flask_login import current_user
 from flask_mail import Message
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -32,6 +32,39 @@ class AuthService:
     @staticmethod
     def _normalize_email(email: str) -> str:
         return (email or "").strip().lower()
+
+    @staticmethod
+    def _admin_email_allowlist() -> set[str]:
+        allowlist: set[str] = set()
+        csv_values = (
+            current_app.config.get("ADMIN_ALLOWED_EMAILS", ""),
+        )
+        single_values = (
+            current_app.config.get("ADMIN_EMAIL", ""),
+            current_app.config.get("ADMIN_SEED_EMAIL", ""),
+            "pdfmasterultrasuite@gmail.com",
+        )
+        for value in single_values:
+            normalized = AuthService._normalize_email(str(value or ""))
+            if normalized:
+                allowlist.add(normalized)
+        for raw_csv in csv_values:
+            for item in str(raw_csv or "").split(","):
+                normalized = AuthService._normalize_email(item)
+                if normalized:
+                    allowlist.add(normalized)
+        return allowlist
+
+    @staticmethod
+    def is_admin_email(email: str | None) -> bool:
+        normalized = AuthService._normalize_email(email or "")
+        return bool(normalized and normalized in AuthService._admin_email_allowlist())
+
+    @staticmethod
+    def should_grant_admin(user: User | None) -> bool:
+        if not user:
+            return False
+        return user.is_admin or AuthService.is_admin_email(user.email)
 
     @staticmethod
     def _normalize_referral_code(referral_code: str | None) -> str:
@@ -387,6 +420,8 @@ class AuthService:
                 is_active=True,
                 last_login_at=utcnow(),
             )
+            if AuthService.is_admin_email(user.email):
+                user.role = "admin"
             db.session.add(user)
             db.session.flush()
             AuthService._apply_referral_reward(user, payload.get("referral_code"))
@@ -406,6 +441,8 @@ class AuthService:
                 challenge.used_at = utcnow()
                 db.session.commit()
                 raise ValueError("This account is disabled.")
+            if AuthService.is_admin_email(user.email) and user.role != "admin":
+                user.role = "admin"
             user.last_login_at = utcnow()
             if not user.is_verified:
                 user.is_verified = True
@@ -425,6 +462,8 @@ class AuthService:
             raise ValueError("An account with that email already exists.")
         user = User(full_name=full_name.strip(), email=email)
         user.referral_code = AuthService._generate_unique_referral_code()
+        if AuthService.is_admin_email(email):
+            user.role = "admin"
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -438,6 +477,8 @@ class AuthService:
             raise ValueError("Invalid email or password.")
         if not user.is_active:
             raise ValueError("This account is disabled.")
+        if AuthService.is_admin_email(user.email) and user.role != "admin":
+            user.role = "admin"
         user.last_login_at = utcnow()
         db.session.commit()
         AuthService.log_activity(user.id, "user.login", "user", str(user.id))
@@ -497,8 +538,14 @@ def admin_required(view_func):
     def wrapper(*args, **kwargs):
         if not current_user.is_authenticated:
             abort(401)
-        if not current_user.is_admin:
+        env_admin = AuthService.is_admin_email(getattr(current_user, "email", ""))
+        session_admin = bool(session.get("is_admin_session"))
+        if env_admin and not current_user.is_admin:
+            current_user.role = "admin"
+            db.session.commit()
+        if not (current_user.is_admin or env_admin or session_admin):
             abort(403)
+        session["is_admin_session"] = True
         return view_func(*args, **kwargs)
 
     return wrapper

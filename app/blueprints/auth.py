@@ -14,7 +14,6 @@ from app.services.auth_service import AuthService
 
 auth_bp = Blueprint("auth", __name__)
 IST_TZ = pytz.timezone("Asia/Kolkata")
-GOOGLE_ADMIN_EMAIL = "pdfmasterultrasuite@gmail.com"
 
 
 def _safe_next_url(raw: str | None) -> str:
@@ -39,6 +38,11 @@ def _format_datetime_ist(dt) -> str:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(IST_TZ).strftime("%d %b %Y %I:%M %p")
+
+
+def _sync_admin_session(user: User) -> None:
+    session.permanent = True
+    session["is_admin_session"] = bool(AuthService.should_grant_admin(user))
 
 
 @auth_bp.route("/signup", methods=["GET", "POST"])
@@ -164,7 +168,7 @@ def google_auth():
             db.session.add(user)
             created = True
 
-        if email == GOOGLE_ADMIN_EMAIL:
+        if AuthService.is_admin_email(email):
             user.role = "admin"
 
         user.last_login_at = utcnow()
@@ -178,7 +182,8 @@ def google_auth():
             str(user.id),
             details={"provider": "google"},
         )
-        login_user(user)
+        login_user(user, remember=True)
+        _sync_admin_session(user)
         flash(
             "Account created successfully with Google." if created else "Logged in with Google.",
             "success",
@@ -218,7 +223,8 @@ def verify_otp():
         except Exception as exc:
             flash(str(exc), "danger")
         else:
-            login_user(user)
+            login_user(user, remember=True)
+            _sync_admin_session(user)
             if purpose == AuthService.OTP_PURPOSE_SIGNUP:
                 flash("Account verified successfully.", "success")
             else:
@@ -237,6 +243,7 @@ def verify_otp():
 @auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    session.pop("is_admin_session", None)
     logout_user()
     flash("You have been signed out.", "success")
     return redirect(url_for("main.landing"))
