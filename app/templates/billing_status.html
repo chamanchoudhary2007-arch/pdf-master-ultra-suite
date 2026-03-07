@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Billing Status | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex align-items-start gap-3 mb-3">
+            {% if state == 'success' %}
+            <span class="badge text-bg-success fs-6"><i class="bi bi-check2-circle me-1"></i>Payment successful</span>
+            {% else %}
+            <span class="badge text-bg-danger fs-6"><i class="bi bi-exclamation-triangle me-1"></i>Payment failed</span>
+            {% endif %}
+          </div>
+          <h1 class="h3 mb-2">
+            {% if state == 'success' %}
+            Premium billing completed
+            {% else %}
+            Payment could not be completed
+            {% endif %}
+          </h1>
+          <p class="text-secondary mb-4">{{ message }}</p>
+
+          {% if plan %}
+          <div class="metric-inline mb-3">
+            <span>Plan</span>
+            <strong>{{ plan }}</strong>
+          </div>
+          {% endif %}
+          {% if order_id %}
+          <div class="metric-inline mb-2">
+            <span>Order ID</span>
+            <strong class="text-break">{{ order_id }}</strong>
+          </div>
+          {% endif %}
+          {% if payment_id %}
+          <div class="metric-inline mb-4">
+            <span>Payment ID</span>
+            <strong class="text-break">{{ payment_id }}</strong>
+          </div>
+          {% endif %}
+
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Back to dashboard</a>
+            <a class="btn btn-outline-secondary" href="{{ url_for('main.settings') }}">Open settings</a>
+            {% if state != 'success' %}
+            <a class="btn btn-outline-secondary" href="{{ url_for('main.settings') }}#billing">Try again</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

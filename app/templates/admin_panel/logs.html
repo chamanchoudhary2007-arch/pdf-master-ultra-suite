@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Admin Logs | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Audit logs</span>
+  <h1 class="h2 mb-0">Recent activity</h1>
+</section>
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr><th>Action</th><th>Target</th><th>User</th><th>IP</th><th>Timestamp</th></tr></thead>
+    <tbody>
+      {% for row in logs %}
+      <tr>
+        <td>{{ row.action }}</td>
+        <td>{{ row.target_type }} {{ row.target_id }}</td>
+        <td>{{ row.user_id or 'system' }}</td>
+        <td>{{ row.ip_address }}</td>
+        <td>{{ row.created_at.strftime('%d %b %Y %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

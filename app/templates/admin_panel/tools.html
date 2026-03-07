@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Admin Tools | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <div class="d-flex justify-content-between align-items-center gap-3">
+    <div>
+      <span class="eyebrow">Catalog manager</span>
+      <h1 class="h2 mb-0">Tool pricing and availability</h1>
+    </div>
+    <form class="d-flex gap-2" method="get">
+      <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Search tools">
+      <button class="btn btn-outline-secondary">Search</button>
+    </form>
+  </div>
+</section>
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr><th>Tool</th><th>Category</th><th>Status</th><th>Price</th><th>Flags</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      {% for tool in tools %}
+      <tr>
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="tool_id" value="{{ tool.id }}">
+          <td>
+            <div class="fw-medium">{{ tool.name }}</div>
+            <div class="small text-muted">{{ tool.tool_key }}</div>
+          </td>
+          <td>{{ tool.category }}</td>
+          <td><input class="form-check-input" type="checkbox" name="is_enabled" {{ 'checked' if tool.is_enabled else '' }}></td>
+          <td><input class="form-control" type="number" name="price_paise" value="{{ tool.price_paise }}"></td>
+          <td>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_payperuse_allowed" {{ 'checked' if tool.is_payperuse_allowed else '' }}>
+              <label class="form-check-label small">Pay per use</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_subscription_only" {{ 'checked' if tool.is_subscription_only else '' }}>
+              <label class="form-check-label small">Subscription only</label>
+            </div>
+          </td>
+          <td><button class="btn btn-primary btn-sm">Save</button></td>
+        </form>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% block title %}Settings | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <div class="dashboard-topbar">
+    <div>
+      <span class="eyebrow">Profile</span>
+      <h1 class="h2 mb-1">Account settings</h1>
+      <p class="text-secondary mb-0">Manage profile details, premium plan, and referral rewards from one place.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row g-4">
+  <div class="col-lg-3">
+    <div class="card border-0 shadow-sm settings-sidebar">
+      <div class="card-body p-3">
+        <div class="small text-uppercase text-muted fw-semibold mb-2">Settings menu</div>
+        <div class="settings-nav-list">
+          <a href="#billing" class="settings-nav-link">
+            <i class="bi bi-credit-card-2-front"></i>
+            <span>Premium billing</span>
+          </a>
+          <a href="#profile-settings" class="settings-nav-link">
+            <i class="bi bi-person-circle"></i>
+            <span>Profile</span>
+          </a>
+          <a href="#refer-earn" class="settings-nav-link">
+            <i class="bi bi-gift"></i>
+            <span>Refer & Earn</span>
+          </a>
+          <a href="#share-with-friends" class="settings-nav-link">
+            <i class="bi bi-share"></i>
+            <span>Share with friends</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-9">
+    <section class="card border-0 shadow-sm mb-4" id="billing">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <span class="eyebrow">Premium billing</span>
+            <h2 class="h4 mb-1">Upgrade plans</h2>
+            <p class="text-secondary mb-0">Activate or renew premium with Razorpay checkout.</p>
+          </div>
+          {% if is_premium_user %}
+          <span class="price-chip premium-chip"><i class="bi bi-patch-check-fill me-1"></i>Premium Active</span>
+          {% endif %}
+        </div>
+        <div class="row g-3">
+          {% for plan in plan_catalog %}
+          <div class="col-md-6">
+            <div class="plan-card h-100">
+              <div class="small text-uppercase text-muted">{{ plan.label or plan.name }}</div>
+              <div class="fw-semibold mb-1">{{ plan.name }}</div>
+              <div class="h4 mt-1 mb-2">{{ plan.price_paise|money }}</div>
+              <p class="text-secondary small mb-3">{{ plan.tagline }}</p>
+              <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form" data-plan-key="{{ plan.plan_key }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="plan_key" value="{{ plan.plan_key }}">
+                <button class="btn btn-primary w-100" type="button" data-upgrade-button>
+                  {{ 'Renew plan' if active_subscription and active_subscription.plan_key == plan.plan_key else 'Activate plan' }}
+                </button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+          <div class="col-md-6">
+            <div class="plan-card h-100 border border-success-subtle">
+              <div class="small text-uppercase text-muted">Custom Days</div>
+              <div class="fw-semibold mb-1">Choose exact number of days</div>
+              <p class="text-secondary small mb-3">Enter custom days at ₹1 per day.</p>
+              <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form" data-plan-key="pro_custom" data-custom-plan="true">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="plan_key" value="pro_custom">
+                <label class="form-label small text-muted" for="customDaysSettings">Custom Days</label>
+                <input
+                  class="form-control"
+                  id="customDaysSettings"
+                  type="number"
+                  name="custom_days"
+                  min="1"
+                  max="3650"
+                  placeholder="Enter days (example: 15)"
+                >
+                <div class="small mt-2 text-success d-none" data-custom-price-display>
+                  Total price: <strong data-custom-price>₹0</strong>
+                </div>
+                <div class="small mt-1 text-muted d-none" data-custom-confirm>
+                  Total price is ₹0. Do you want to pay?
+                </div>
+                <button class="btn btn-primary w-100 mt-3" type="button" data-upgrade-button>Pay custom amount</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4" id="profile-settings">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Profile</h2>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          {% if is_premium_user %}
+          <span class="premium-avatar-ring premium-avatar-ring-lg" aria-hidden="true">
+            {% if profile_photo_url %}
+            <img class="profile-avatar-lg premium-avatar-img" src="{{ profile_photo_url }}" alt="Premium profile photo">
+            {% else %}
+            <span class="profile-avatar-lg placeholder-avatar premium-avatar-fallback">{{ (current_user.full_name or current_user.email or 'U')[0]|upper }}</span>
+            {% endif %}
+            <span class="premium-verified-badge premium-verified-badge-lg"><i class="bi bi-check-lg"></i></span>
+          </span>
+          {% else %}
+            {% if profile_photo_url %}
+            <img class="profile-avatar-lg" src="{{ profile_photo_url }}" alt="Profile photo">
+            {% else %}
+            <div class="profile-avatar-lg placeholder-avatar">{{ (current_user.full_name or current_user.email or 'U')[0]|upper }}</div>
+            {% endif %}
+          {% endif %}
+          <div>
+            <div class="fw-semibold">{{ current_user.full_name }}</div>
+            <div class="small text-muted">{{ current_user.email }}</div>
+            {% if is_premium_user %}
+            <span class="price-chip premium-chip mt-2"><i class="bi bi-gem me-1"></i>Premium Active</span>
+            {% endif %}
+          </div>
+        </div>
+        <form action="{{ url_for('main.update_profile_photo') }}" method="post" enctype="multipart/form-data" class="vstack gap-2 mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="form-label small text-muted mb-0">Profile photo</label>
+          <input class="form-control" type="file" name="profile_photo" accept=".png,.jpg,.jpeg,.webp">
+          <button class="btn btn-outline-secondary" type="submit">Upload photo</button>
+        </form>
+        <div class="vstack gap-2">
+          <div class="metric-inline"><span>Name</span><strong>{{ current_user.full_name }}</strong></div>
+          <div class="metric-inline"><span>Email</span><strong>{{ current_user.email }}</strong></div>
+          <div class="metric-inline"><span>Plan</span><strong>{{ active_subscription.plan_name if active_subscription else 'Free' }}</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4" id="refer-earn">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="h5 mb-1"><i class="bi bi-gift me-2 text-success"></i>Refer & Earn</h2>
+            <p class="text-secondary small mb-0">Invite friends and unlock automatic premium rewards.</p>
+          </div>
+          <span class="price-chip"><i class="bi bi-stars me-1"></i>Reward Rule: 2 = 1 Day Pro</span>
+        </div>
+
+        <div class="referral-code-shell mb-3">
+          <div>
+            <div class="small text-muted mb-1">Your referral code</div>
+            <div class="referral-code-value" id="referralCodeValue">{{ referral_code }}</div>
+          </div>
+          <button class="btn btn-outline-secondary" type="button" id="copyReferralCodeBtn">
+            <i class="bi bi-clipboard me-1"></i>Copy code
+          </button>
+        </div>
+
+        <div class="small mb-2">
+          You have referred <strong>{{ total_referrals }}</strong> friend{{ 's' if total_referrals != 1 else '' }}.
+          Just <strong>{{ referrals_to_next_reward }}</strong> more to get <strong>1 Day of Premium</strong>!
+        </div>
+        <div class="progress referral-progress mb-2" role="progressbar" aria-valuenow="{{ referral_progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar bg-success" style="width: {{ referral_progress_percent }}%"></div>
+        </div>
+        <div class="small text-muted mb-3">{{ total_referrals % referral_step }} / {{ referral_step }} referrals towards next reward.</div>
+
+        <div class="referral-terms-box">
+          <h3 class="h6 mb-2">Terms & Conditions</h3>
+          <ul class="small mb-0">
+            <li><strong>Share & Win:</strong> Get 1 Day of Full Premium Access for every 2 friends who successfully sign up.</li>
+            <li><strong>Instant Activation:</strong> Premium is activated automatically the moment your 2nd friend joins.</li>
+            <li><strong>Fair Play:</strong> Creating fake accounts, using disposable emails, or self-referring from the same IP will result in a permanent hardware ban.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm" id="share-with-friends">
+      <div class="card-body">
+        <h2 class="h5 mb-2">Share with friends</h2>
+        <p class="text-secondary small mb-3">Invite friends to PDFMaster Ultra Suite with your app link.</p>
+        <div class="row g-2 align-items-center">
+          <div class="col-lg-8">
+            <input class="form-control" id="shareLinkInput" type="text" value="{{ share_link }}" readonly>
+          </div>
+          <div class="col-lg-4 d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary flex-grow-1" id="copyShareLinkBtn" type="button">
+              <i class="bi bi-clipboard me-1"></i>Copy link
+            </button>
+            <button class="btn btn-primary flex-grow-1" id="nativeShareBtn" type="button">
+              <i class="bi bi-share me-1"></i>Share now
+            </button>
+          </div>
+        </div>
+        <div class="small text-secondary mt-2">Tip: WhatsApp, Telegram, and browser share panel will open where supported.</div>
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+window.setupRazorpayUpgrade && window.setupRazorpayUpgrade();
+
+(function () {
+  const referralCodeElement = document.getElementById('referralCodeValue');
+  const copyReferralCodeBtn = document.getElementById('copyReferralCodeBtn');
+  if (referralCodeElement && copyReferralCodeBtn) {
+    copyReferralCodeBtn.addEventListener('click', async function () {
+      const value = (referralCodeElement.textContent || '').trim();
+      if (!value) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const temp = document.createElement('textarea');
+          temp.value = value;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand('copy');
+          temp.remove();
+        }
+        copyReferralCodeBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+        setTimeout(() => {
+          copyReferralCodeBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy code';
+        }, 1400);
+      } catch (e) {
+        alert('Copy failed. Please copy the referral code manually.');
+      }
+    });
+  }
+
+  const shareInput = document.getElementById('shareLinkInput');
+  const copyShareBtn = document.getElementById('copyShareLinkBtn');
+  const nativeShareBtn = document.getElementById('nativeShareBtn');
+  if (!shareInput || !copyShareBtn || !nativeShareBtn) return;
+
+  copyShareBtn.addEventListener('click', async function () {
+    const value = shareInput.value || '';
+    if (!value) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        shareInput.select();
+        document.execCommand('copy');
+      }
+      copyShareBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+      setTimeout(() => {
+        copyShareBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy link';
+      }, 1400);
+    } catch (e) {
+      alert('Copy failed. Please copy the link manually.');
+    }
+  });
+
+  nativeShareBtn.addEventListener('click', async function () {
+    const value = shareInput.value || '';
+    const shareData = {
+      title: 'PDFMaster Ultra Suite',
+      text: 'Try PDFMaster Ultra Suite for PDF tools and productivity workflows.',
+      url: value,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      const whatsappUrl = 'https://wa.me/?text=' + encodeURIComponent(shareData.text + ' ' + shareData.url);
+      window.open(whatsappUrl, '_blank');
+    } catch (e) {
+      // User closed share dialog or browser blocked popup.
+    }
+  });
+})();
+</script>
+{% endblock %}

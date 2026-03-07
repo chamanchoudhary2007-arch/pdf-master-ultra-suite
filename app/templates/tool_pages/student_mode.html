@@ -1,0 +1,19 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Student mode</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-6">
+    <select class="form-select" name="student_action">
+      <option value="summary">Convert PDF to summary</option>
+      <option value="notes">Extract notes</option>
+      <option value="flashcards">Create flashcards</option>
+      <option value="quiz">Generate quiz questions</option>
+      <option value="highlight">Highlight matching text</option>
+    </select>
+  </div>
+  <div class="col-md-6"><input class="form-control" type="text" name="highlight_query" placeholder="Highlight keyword or phrase"></div>
+  <div class="col-12"><button class="btn btn-primary">Run student workflow</button></div>
+</form>
+{% endblock %}

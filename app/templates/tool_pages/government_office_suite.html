@@ -1,0 +1,42 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Government Office Suite</h2>
+<p class="text-secondary">Draft office memorandum, official letter, RTI reply, or file note with structured output.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-md-6">
+    <label class="form-label">Document type</label>
+    <select class="form-select" name="gov_action">
+      <option value="office_memo">Office memorandum</option>
+      <option value="official_letter">Official letter</option>
+      <option value="rti_reply">RTI reply</option>
+      <option value="file_note">File note</option>
+    </select>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Reference number</label>
+    <input class="form-control" type="text" name="reference_no" placeholder="REF/UNIT/2026/001">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Department</label>
+    <input class="form-control" type="text" name="department" placeholder="Department / Ministry / Office">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Recipient</label>
+    <input class="form-control" type="text" name="recipient" placeholder="Officer name or designation">
+  </div>
+  <div class="col-12">
+    <label class="form-label">Subject</label>
+    <input class="form-control" type="text" name="subject" placeholder="Official subject line" required>
+  </div>
+  <div class="col-12">
+    <label class="form-label">Point-wise details</label>
+    <textarea class="form-control" name="points" rows="6" placeholder="Enter key points, one point per line"></textarea>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Signatory</label>
+    <input class="form-control" type="text" name="signatory" placeholder="Authorized signatory name/designation">
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Generate official draft</button></div>
+</form>
+{% endblock %}

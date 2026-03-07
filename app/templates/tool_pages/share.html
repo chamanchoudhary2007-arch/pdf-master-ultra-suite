@@ -1,0 +1,32 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Generate secure share links</h2>
+<form method="post" action="{{ url_for('tools.create_share_link') }}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <label class="form-label">Choose a file</label>
+    <select class="form-select" name="file_id">
+      {% for file in output_files + cloud_files %}
+      <option value="{{ file.id }}">{{ file.original_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4"><input class="form-control" type="number" name="expiry_hours" value="24" min="1" placeholder="Expiry hours"></div>
+  <div class="col-md-4"><input class="form-control" type="number" name="max_downloads" value="10" min="1" placeholder="Max downloads"></div>
+  <div class="col-md-4"><input class="form-control" type="password" name="password" placeholder="Share password"></div>
+  <div class="col-12"><button class="btn btn-primary">Generate link</button></div>
+</form>
+<hr class="my-4">
+<h3 class="h5">Active share links</h3>
+<div class="vstack gap-3">
+  {% for link in share_links %}
+  <div class="border rounded p-3">
+    <div class="fw-medium">{{ link.file.original_name }}</div>
+    <div class="small text-muted">Expires {{ link.expires_at.strftime('%d %b %Y %H:%M') }} | Downloads {{ link.download_count }}/{{ link.max_downloads }}</div>
+    <a href="{{ url_for('main.access_share_link', token=link.token, _external=True) }}">{{ url_for('main.access_share_link', token=link.token, _external=True) }}</a>
+  </div>
+  {% else %}
+  <div class="text-secondary">No share links created yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

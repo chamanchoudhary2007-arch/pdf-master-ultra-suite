@@ -1,0 +1,13 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Merge multiple PDFs</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="vstack gap-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div>
+    <label class="form-label">PDF files</label>
+    <input class="form-control" type="file" name="documents" accept=".pdf" multiple required>
+    <div class="form-text">Batch merge is supported. Files are merged in the order you select them.</div>
+  </div>
+  <button class="btn btn-primary">Queue merge job</button>
+</form>
+{% endblock %}

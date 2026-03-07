@@ -1,0 +1,67 @@
+# ------------------------------
+# Secrets / environment
+# ------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ------------------------------
+# Python cache / compiled
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ------------------------------
+# Virtual environments
+# ------------------------------
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# ------------------------------
+# Flask / local runtime data
+# ------------------------------
+instance/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+uploads/
+outputs/
+cloud/
+scan/
+
+# ------------------------------
+# Logs / temp files
+# ------------------------------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# ------------------------------
+# Tooling / test artifacts
+# ------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# ------------------------------
+# IDE / OS junk
+# ------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

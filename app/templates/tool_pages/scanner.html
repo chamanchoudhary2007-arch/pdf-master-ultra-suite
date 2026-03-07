@@ -1,0 +1,32 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Mobile-style document scanner</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <label class="form-label">Scan images</label>
+    <input class="form-control" type="file" name="scan_images" accept="image/*" capture="environment" multiple required>
+    <div class="form-text">Use phone camera capture or upload existing images. Batch scanning is supported.</div>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Brightness</label>
+    <input class="form-range" type="range" name="brightness" min="0.8" max="1.6" step="0.05" value="1.1">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Contrast</label>
+    <input class="form-range" type="range" name="contrast" min="0.8" max="1.8" step="0.05" value="1.25">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Export type</label>
+    <select class="form-select" name="export_type">
+      <option value="pdf">Export to PDF</option>
+      <option value="images">Export enhanced images</option>
+    </select>
+  </div>
+  <div class="col-12 form-check ms-2">
+    <input class="form-check-input" type="checkbox" name="black_white" id="blackWhite">
+    <label class="form-check-label" for="blackWhite">Black and white scan mode</label>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Queue scan job</button></div>
+</form>
+{% endblock %}

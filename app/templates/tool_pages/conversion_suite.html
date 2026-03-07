@@ -1,0 +1,33 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+{% set image_to_pdf_keys = ['jpg_to_pdf', 'png_to_pdf', 'webp_to_pdf', 'heic_to_pdf', 'svg_to_pdf', 'tiff_to_pdf'] %}
+{% set from_pdf_keys = ['pdf_to_word', 'pdf_to_docx', 'pdf_to_ppt', 'pdf_to_pptx', 'pdf_to_excel', 'pdf_to_xlsx', 'pdf_to_jpg', 'pdf_to_png', 'pdf_to_html', 'pdf_to_rtf'] %}
+<h2 class="h4 mb-2">{{ tool.name }}</h2>
+<p class="text-secondary mb-4">{{ tool.description }}</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {% if tool.tool_key in image_to_pdf_keys %}
+  <div class="col-12">
+    <label class="form-label">Image files</label>
+    <input class="form-control" type="file" name="documents" accept="image/*" multiple required>
+    <div class="form-text">Multiple images supported. They will be merged in upload order.</div>
+  </div>
+  {% elif tool.tool_key in from_pdf_keys %}
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <label class="form-label">Source file</label>
+    <input class="form-control" type="file" name="document" required>
+    <div class="form-text">Upload the source file matching this conversion type.</div>
+  </div>
+  {% endif %}
+
+  <div class="col-12">
+    <button class="btn btn-primary">{{ tool.name }}</button>
+  </div>
+</form>
+{% endblock %}

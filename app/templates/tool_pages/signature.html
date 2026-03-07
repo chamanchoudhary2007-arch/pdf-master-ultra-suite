@@ -1,0 +1,39 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Digital signature system</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-4" id="signatureForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="placements_json" id="placementsJson">
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  <div class="col-lg-6">
+    <label class="form-label">Draw signature</label>
+    <canvas id="signaturePad" class="signature-pad"></canvas>
+    <input type="hidden" name="signature_data" id="signatureData">
+    <div class="d-flex gap-2 mt-2">
+      <button class="btn btn-outline-secondary btn-sm" type="button" id="clearSignature">Clear</button>
+      <span class="small text-muted align-self-center">Or upload a signature image instead.</span>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <label class="form-label">Upload signature image</label>
+    <input class="form-control mb-3" type="file" name="signature_image" accept=".png,.jpg,.jpeg,.webp">
+    <div class="row g-2">
+      <div class="col-6"><input class="form-control" id="sigPage" type="number" min="1" value="1" placeholder="Page"></div>
+      <div class="col-6"><input class="form-control" name="date_stamp" type="text" placeholder="Date stamp (optional)"></div>
+      <div class="col-6"><input class="form-control" id="sigX" type="number" value="320" placeholder="X"></div>
+      <div class="col-6"><input class="form-control" id="sigY" type="number" value="60" placeholder="Y"></div>
+      <div class="col-6"><input class="form-control" id="sigWidth" type="number" value="160" placeholder="Width"></div>
+      <div class="col-6"><input class="form-control" id="sigHeight" type="number" value="64" placeholder="Height"></div>
+    </div>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Apply signature</button></div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+window.setupSignaturePad && window.setupSignaturePad();
+</script>
+{% endblock %}

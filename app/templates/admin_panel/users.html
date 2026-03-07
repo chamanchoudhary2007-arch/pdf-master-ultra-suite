@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Admin Users | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">User management</span>
+  <h1 class="h2 mb-0">Accounts and roles</h1>
+</section>
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr><th>User</th><th>Role</th><th>Wallet</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>
+          <div class="fw-medium">{{ user.full_name }}</div>
+          <div class="small text-muted">{{ user.email }}</div>
+        </td>
+        <td>{{ user.role }}</td>
+        <td>{{ user.wallet_balance_paise|money }}</td>
+        <td>{{ 'Active' if user.is_active else 'Disabled' }}</td>
+        <td>
+          <form method="post" class="d-flex gap-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" value="{{ user.id }}">
+            <button class="btn btn-outline-secondary btn-sm" name="toggle_active" value="1">Toggle active</button>
+            <button class="btn btn-outline-primary btn-sm" name="make_admin" value="{{ '0' if user.role == 'admin' else '1' }}">
+              {{ 'Remove admin' if user.role == 'admin' else 'Make admin' }}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

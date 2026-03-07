@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Admin Payments | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Payments</span>
+  <h1 class="h2 mb-0">Wallet and billing transactions</h1>
+</section>
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr><th>Reference</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Timestamp</th></tr></thead>
+    <tbody>
+      {% for row in payments %}
+      <tr>
+        <td>{{ row.reference }}</td>
+        <td>{{ row.transaction_type }}</td>
+        <td>{{ row.amount_paise|money }}</td>
+        <td>{{ row.balance_after_paise|money }}</td>
+        <td>{{ row.created_at.strftime('%d %b %Y %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

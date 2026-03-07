@@ -1,0 +1,15 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Export PDF pages as images</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-md-8"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-4">
+    <select class="form-select" name="image_format">
+      <option value="png">PNG</option>
+      <option value="jpg">JPG</option>
+    </select>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Convert to images</button></div>
+</form>
+{% endblock %}

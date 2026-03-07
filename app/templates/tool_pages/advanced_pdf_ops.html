@@ -1,0 +1,175 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+{% set needs_single_pdf = tool.tool_key not in ['alternate_mix_pdf', 'compare_pdf'] %}
+<h2 class="h4 mb-2">{{ tool.name }}</h2>
+<p class="text-secondary mb-4">{{ tool.description }}</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  {% if tool.tool_key == 'alternate_mix_pdf' %}
+  <div class="col-12">
+    <label class="form-label">PDF files</label>
+    <input class="form-control" type="file" name="documents" accept=".pdf" multiple required>
+    <div class="form-text">Upload at least 2 PDFs. Pages will be mixed in alternating order.</div>
+  </div>
+  {% elif tool.tool_key == 'compare_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Document A</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Document B</label>
+    <input class="form-control" type="file" name="compare_document" accept=".pdf" required>
+  </div>
+  {% elif needs_single_pdf %}
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'extract_pages' %}
+  <div class="col-md-6">
+    <label class="form-label">Page range</label>
+    <input class="form-control" type="text" name="page_range" placeholder="1-3,5,8-10" value="1-2">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'split_by_pages' %}
+  <div class="col-md-6">
+    <label class="form-label">Every N pages</label>
+    <input class="form-control" type="number" name="every_n" min="1" max="500" value="1">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'split_by_size' %}
+  <div class="col-md-6">
+    <label class="form-label">Target max size (MB)</label>
+    <input class="form-control" type="number" name="max_size_mb" min="0.25" max="500" step="0.25" value="2.0">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'n_up_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Pages per sheet</label>
+    <select class="form-select" name="pages_per_sheet">
+      <option value="2">2-up</option>
+      <option value="4">4-up</option>
+      <option value="6">6-up</option>
+      <option value="8">8-up</option>
+      <option value="9">9-up</option>
+    </select>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'resize_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Scale percent</label>
+    <input class="form-control" type="number" name="scale_percent" min="10" max="400" value="100">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Extra margin (points)</label>
+    <input class="form-control" type="number" name="margin_points" min="0" max="400" value="0">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'deskew_pdf' %}
+  <div class="col-12">
+    <div class="form-text">This tool auto-detects scanned page tilt and corrects skew.</div>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'split_by_text' %}
+  <div class="col-12">
+    <label class="form-label">Split delimiter text</label>
+    <input class="form-control" type="text" name="text_delimiter" placeholder="Invoice No">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'crop_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Margin crop percent</label>
+    <input class="form-control" type="number" name="margin_percent" min="0" max="40" step="0.5" value="5">
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key in ['flatten_pdf', 'grayscale_pdf'] %}
+  <div class="col-12 form-check ms-1">
+    <input class="form-check-input" type="checkbox" name="grayscale" id="grayscaleToggle" {{ 'checked' if tool.tool_key == 'grayscale_pdf' else '' }}>
+    <label class="form-check-label" for="grayscaleToggle">Export in grayscale</label>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'extract_images_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Image format</label>
+    <select class="form-select" name="image_format">
+      <option value="png">PNG</option>
+      <option value="jpg">JPG</option>
+      <option value="webp">WEBP</option>
+    </select>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'redact_pdf' %}
+  <div class="col-12">
+    <label class="form-label">Keywords to redact</label>
+    <textarea class="form-control" name="redact_terms" rows="3" placeholder="Aadhaar, PAN, phone, email"></textarea>
+    <div class="form-text">Use comma or new line separated terms.</div>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'bates_numbering' %}
+  <div class="col-md-4">
+    <label class="form-label">Prefix</label>
+    <input class="form-control" type="text" name="bates_prefix" value="DOC">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Start number</label>
+    <input class="form-control" type="number" name="bates_start" min="1" value="1">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Position</label>
+    <select class="form-select" name="bates_position">
+      <option value="bottom_right">Bottom right</option>
+      <option value="bottom_center">Bottom center</option>
+      <option value="bottom_left">Bottom left</option>
+      <option value="top_right">Top right</option>
+      <option value="top_center">Top center</option>
+      <option value="top_left">Top left</option>
+    </select>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'create_bookmarks' %}
+  <div class="col-12">
+    <label class="form-label">Bookmarks</label>
+    <textarea class="form-control" name="bookmarks_text" rows="5" placeholder="Introduction|1&#10;Chapter 1|3&#10;Conclusion|10"></textarea>
+    <div class="form-text">One bookmark per line in format: <code>Title|PageNumber</code></div>
+  </div>
+  {% endif %}
+
+  {% if tool.tool_key == 'edit_metadata_pdf' %}
+  <div class="col-md-6">
+    <label class="form-label">Title</label>
+    <input class="form-control" type="text" name="metadata_title">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Author</label>
+    <input class="form-control" type="text" name="metadata_author">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Subject</label>
+    <input class="form-control" type="text" name="metadata_subject">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Keywords</label>
+    <input class="form-control" type="text" name="metadata_keywords" placeholder="contracts, legal, client">
+  </div>
+  {% endif %}
+
+  <div class="col-12">
+    <button class="btn btn-primary">{{ tool.name }}</button>
+  </div>
+</form>
+{% endblock %}

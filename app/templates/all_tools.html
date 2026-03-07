@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}All Tools | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="all-tools-hero mb-4">
+  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+    <div>
+      <span class="eyebrow">Premium Workspace</span>
+      <h1 class="h2 mb-1">All Tools</h1>
+      <p class="text-secondary mb-0">Browse complete tool collections by workflow. Favorites and recent tools stay pinned for faster access.</p>
+    </div>
+    <div>
+      {% if is_premium_user %}
+      <span class="price-chip premium-chip"><i class="bi bi-gem me-1"></i>Premium Active</span>
+      {% else %}
+      <span class="price-chip"><i class="bi bi-lightning-charge me-1"></i>Upgrade for full premium feel</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="mb-4">
+  <div class="d-flex flex-wrap gap-2 all-tools-nav">
+    {% for section in sections %}
+    <a class="btn btn-sm btn-outline-secondary rounded-pill" href="#{{ section.anchor }}">{{ section.title }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+{% for section in sections %}
+<section class="mb-5" id="{{ section.anchor }}">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">{{ section.title }}</h2>
+    <span class="text-secondary small">{{ section.tools|length }} tools</span>
+  </div>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3">
+    {% for tool in section.tools %}
+      {% include 'partials/tool_card.html' with context %}
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

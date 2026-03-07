@@ -1,0 +1,26 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Teacher Toolkit</h2>
+<p class="text-secondary">Generate question paper, answer key, rubric, and lesson plan from one source PDF.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-3">
+    <label class="form-label">Objective questions</label>
+    <input class="form-control" type="number" name="objective_count" value="10" min="5" max="40">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Subjective questions</label>
+    <input class="form-control" type="number" name="subjective_count" value="5" min="2" max="20">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Total marks</label>
+    <input class="form-control" type="number" name="total_marks" value="100" min="20" max="300">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Class duration (min)</label>
+    <input class="form-control" type="number" name="class_duration" value="45" min="20" max="180">
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Generate teacher toolkit</button></div>
+</form>
+{% endblock %}
