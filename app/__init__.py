@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from flask import Flask, current_app, url_for
@@ -9,12 +10,15 @@ from sqlalchemy import inspect, text
 from app.config import config_map
 from app.extensions import csrf, db, login_manager, mail, migrate, oauth
 from app.models import ManagedFile, User, generate_referral_code
+from app.services.mail_service import MailService
 from app.seeds import seed_admin_user, seed_tool_catalog
 
 
 def create_app(config_name: str = "default") -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_map.get(config_name, config_map["default"]))
+    _apply_runtime_mail_env(app)
+    _log_mail_configuration(app)
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     for key in ("UPLOAD_ROOT", "OUTPUT_ROOT", "CLOUD_ROOT", "SCAN_ROOT"):
@@ -33,6 +37,85 @@ def create_app(config_name: str = "default") -> Flask:
         seed_admin_user()
 
     return app
+
+
+def _env_bool(raw_value: str | None, default: bool) -> bool:
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _apply_runtime_mail_env(app: Flask) -> None:
+    mail_server = (os.environ.get("MAIL_SERVER") or "").strip()
+    if mail_server:
+        app.config["MAIL_SERVER"] = mail_server
+
+    mail_port_raw = (os.environ.get("MAIL_PORT") or "").strip()
+    if mail_port_raw:
+        try:
+            app.config["MAIL_PORT"] = int(mail_port_raw)
+        except ValueError:
+            app.logger.error(
+                "Invalid MAIL_PORT value '%s'. Falling back to %s.",
+                mail_port_raw,
+                app.config.get("MAIL_PORT", 587),
+            )
+
+    app.config["MAIL_USE_TLS"] = _env_bool(
+        os.environ.get("MAIL_USE_TLS"),
+        bool(app.config.get("MAIL_USE_TLS", True)),
+    )
+    app.config["MAIL_USE_SSL"] = _env_bool(
+        os.environ.get("MAIL_USE_SSL"),
+        bool(app.config.get("MAIL_USE_SSL", False)),
+    )
+
+    mail_username = (os.environ.get("MAIL_USERNAME") or "").strip()
+    if mail_username:
+        app.config["MAIL_USERNAME"] = mail_username
+
+    mail_password = (os.environ.get("MAIL_PASSWORD") or "").strip()
+    if mail_password:
+        app.config["MAIL_PASSWORD"] = "".join(mail_password.split())
+
+    mail_default_sender = (os.environ.get("MAIL_DEFAULT_SENDER") or "").strip()
+    if mail_default_sender:
+        app.config["MAIL_DEFAULT_SENDER"] = mail_default_sender
+
+    mail_sender_name = (os.environ.get("MAIL_SENDER_NAME") or "").strip()
+    if mail_sender_name:
+        app.config["MAIL_SENDER_NAME"] = mail_sender_name
+
+    mail_timeout_raw = (os.environ.get("MAIL_TIMEOUT_SECONDS") or "").strip()
+    if mail_timeout_raw:
+        try:
+            app.config["MAIL_TIMEOUT_SECONDS"] = max(1, int(mail_timeout_raw))
+        except ValueError:
+            app.logger.error(
+                "Invalid MAIL_TIMEOUT_SECONDS value '%s'. Falling back to %s.",
+                mail_timeout_raw,
+                app.config.get("MAIL_TIMEOUT_SECONDS", 10),
+            )
+
+
+def _log_mail_configuration(app: Flask) -> None:
+    settings, issues = MailService.inspect_config(app.config)
+    if issues:
+        app.logger.error(
+            "Mail configuration validation failed during config load: %s",
+            "; ".join(issues),
+        )
+        return
+
+    app.logger.info(
+        "Mail configuration loaded: server=%s port=%s tls=%s ssl=%s sender=%s timeout=%ss",
+        settings["server"],
+        settings["port"],
+        settings["use_tls"],
+        settings["use_ssl"],
+        MailService.mask_email(str(settings["default_sender"])),
+        settings["timeout"],
+    )
 
 
 def register_extensions(app: Flask) -> None:

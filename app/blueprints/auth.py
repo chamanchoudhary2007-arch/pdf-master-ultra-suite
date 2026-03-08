@@ -11,6 +11,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from app.extensions import db, oauth
 from app.models import User, utcnow
 from app.services.auth_service import AuthService
+from app.services.mail_service import MailService, OTPRequestError
 
 auth_bp = Blueprint("auth", __name__)
 IST_TZ = pytz.timezone("Asia/Kolkata")
@@ -45,6 +46,36 @@ def _sync_admin_session(user: User) -> None:
     session["is_admin_session"] = bool(AuthService.should_grant_admin(user))
 
 
+def _handle_otp_start_exception(exc: Exception, *, flow: str, fallback_endpoint: str):
+    masked_email = MailService.mask_email(request.form.get("email", ""))
+    if isinstance(exc, ValueError):
+        current_app.logger.info(
+            "%s rejected during validation. recipient=%s reason=%s",
+            flow,
+            masked_email,
+            exc,
+        )
+        flash(str(exc), "danger")
+        return None
+    if isinstance(exc, OTPRequestError):
+        current_app.logger.warning(
+            "%s failed gracefully. recipient=%s message=%s",
+            flow,
+            masked_email,
+            exc,
+        )
+        flash(str(exc), "danger")
+        return redirect(url_for(fallback_endpoint))
+
+    current_app.logger.exception(
+        "%s failed unexpectedly. recipient=%s",
+        flow,
+        masked_email,
+    )
+    flash("Unable to send OTP right now. Please try again in a moment.", "danger")
+    return redirect(url_for(fallback_endpoint))
+
+
 @auth_bp.route("/signup", methods=["GET", "POST"])
 def signup():
     if current_user.is_authenticated:
@@ -63,7 +94,13 @@ def signup():
                 referral_code=request.form.get("referral_code", ""),
             )
         except Exception as exc:
-            flash(str(exc), "danger")
+            response = _handle_otp_start_exception(
+                exc,
+                flow="Signup OTP request",
+                fallback_endpoint="auth.signup",
+            )
+            if response is not None:
+                return response
         else:
             flash("OTP sent to your email. Verify to create your account.", "success")
             return redirect(
@@ -89,7 +126,13 @@ def login():
         try:
             challenge = AuthService.start_login_otp(email=request.form.get("email", ""))
         except Exception as exc:
-            flash(str(exc), "danger")
+            response = _handle_otp_start_exception(
+                exc,
+                flow="Login OTP request",
+                fallback_endpoint="auth.login",
+            )
+            if response is not None:
+                return response
         else:
             flash("Login OTP sent to your email.", "success")
             return redirect(
@@ -210,7 +253,15 @@ def verify_otp():
     try:
         challenge = AuthService.get_active_otp_challenge(token, purpose)
     except Exception as exc:
-        flash(str(exc), "danger")
+        if isinstance(exc, ValueError):
+            flash(str(exc), "danger")
+        else:
+            current_app.logger.exception(
+                "OTP challenge load failed. purpose=%s token_present=%s",
+                purpose,
+                bool(token),
+            )
+            flash("OTP verification session is unavailable. Please request a new OTP.", "danger")
         return redirect(url_for("auth.signup" if purpose == AuthService.OTP_PURPOSE_SIGNUP else "auth.login"))
 
     if request.method == "POST":
@@ -221,7 +272,15 @@ def verify_otp():
                 otp_input=request.form.get("otp", ""),
             )
         except Exception as exc:
-            flash(str(exc), "danger")
+            if isinstance(exc, ValueError):
+                flash(str(exc), "danger")
+            else:
+                current_app.logger.exception(
+                    "OTP verification failed unexpectedly. purpose=%s recipient=%s",
+                    purpose,
+                    MailService.mask_email(challenge.email),
+                )
+                flash("Unable to verify OTP right now. Please request a new code.", "danger")
         else:
             login_user(user, remember=True)
             _sync_admin_session(user)

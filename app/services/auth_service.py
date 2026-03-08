@@ -4,14 +4,14 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from html import escape
+from urllib.parse import urljoin, urlparse
 
 import pytz
 from flask import abort, current_app, request, session
 from flask_login import current_user
-from flask_mail import Message
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.extensions import db, mail
+from app.extensions import db
 from app.models import (
     ActivityLog,
     EmailOTPChallenge,
@@ -21,6 +21,7 @@ from app.models import (
     generate_referral_code,
     utcnow,
 )
+from app.services.mail_service import MailService, OTPRequestError
 
 
 class AuthService:
@@ -86,18 +87,6 @@ class AuthService:
         user.referral_code = AuthService._generate_unique_referral_code()
         db.session.commit()
         return user.referral_code
-
-    @staticmethod
-    def _missing_mail_config_keys() -> list[str]:
-        missing = []
-        for key in ("MAIL_SERVER", "MAIL_USERNAME", "MAIL_PASSWORD"):
-            value = (current_app.config.get(key) or "").strip()
-            if not value:
-                missing.append(key)
-        mail_port = current_app.config.get("MAIL_PORT", 0)
-        if not isinstance(mail_port, int) or mail_port <= 0:
-            missing.append("MAIL_PORT")
-        return missing
 
     @staticmethod
     def _generate_otp_code() -> str:
@@ -205,10 +194,28 @@ class AuthService:
         db.session.add(log)
 
     @staticmethod
+    def _public_base_url() -> str:
+        configured_base = (current_app.config.get("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
+        if configured_base.lower().startswith(("https://", "http://")):
+            return configured_base
+        billing_url = (current_app.config.get("BILLING_SETTINGS_URL", "") or "").strip()
+        parsed = urlparse(billing_url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+        return "https://pdf-master-ultra-suite.onrender.com"
+
+    @staticmethod
+    def _resolve_email_logo_url() -> str:
+        configured_logo = (current_app.config.get("EMAIL_LOGO_URL", "") or "").strip()
+        if configured_logo.lower().startswith(("https://", "http://")):
+            return configured_logo.replace(" ", "%20")
+        base_url = AuthService._public_base_url()
+        if configured_logo:
+            return urljoin(f"{base_url}/", configured_logo.lstrip("/")).replace(" ", "%20")
+        return f"{base_url}/static/images/logo.jpeg"
+
+    @staticmethod
     def _send_otp_email(email: str, otp_code: str, purpose: str) -> None:
-        missing = AuthService._missing_mail_config_keys()
-        if missing:
-            raise ValueError("Unable to send OTP. Please check server settings.")
         ttl_minutes = int(current_app.config["OTP_TTL_MINUTES"])
         app_name = "PDFMaster Ultra Suite"
         subject = "Your PDFMaster Verification Code (Valid for 2 minutes)"
@@ -221,16 +228,11 @@ class AuthService:
             "If you did not request this email, you can safely ignore it."
         )
 
-        logo_url = (current_app.config.get("EMAIL_LOGO_URL", "") or "").strip()
-        if not logo_url.lower().startswith(("https://", "http://")):
-            logo_url = ""
-        if not logo_url:
-            logo_url = "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg"
-        logo_src = escape(logo_url, quote=True)
-        logo_alt = escape(app_name, quote=True)
-        app_name_html = escape(app_name)
-
-        html = f"""
+        try:
+            logo_src = escape(AuthService._resolve_email_logo_url(), quote=True)
+            logo_alt = escape(app_name, quote=True)
+            app_name_html = escape(app_name)
+            html = f"""
 <!doctype html>
 <html lang="en">
   <head>
@@ -285,8 +287,8 @@ class AuthService:
           <table role="presentation" width="560" cellspacing="0" cellpadding="0" class="email-container card" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #dce7e3;border-radius:16px;overflow:hidden;">
             <tr>
               <td class="content-cell" style="padding:20px 20px 14px;text-align:center;border-bottom:1px solid #e8f0ed;">
-                <img src="{logo_src}" width="56" height="56" alt="{logo_alt} logo"
-                  style="display:block;margin:0 auto 10px auto;border-radius:12px;border:1px solid #d6e4df;object-fit:cover;width:56px;height:56px;">
+                <img src="{logo_src}" width="88" alt="{logo_alt}"
+                  style="display:block;margin:0 auto 10px auto;width:88px;max-width:88px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">
                 <div class="main-text" style="font-size:24px;line-height:1.2;font-weight:800;letter-spacing:0.2px;color:#113c30;">
                   {app_name_html}
                 </div>
@@ -327,33 +329,27 @@ class AuthService:
   </body>
 </html>
 """
-        try:
-            sender_email = (current_app.config.get("MAIL_DEFAULT_SENDER", "") or "").strip()
-            sender_name = (current_app.config.get("MAIL_SENDER_NAME", "") or "").strip()
-            sender = None
-            if sender_email:
-                sender = (sender_name, sender_email) if sender_name else sender_email
+        except Exception as exc:
+            current_app.logger.exception(
+                "OTP email template render failed. purpose=%s recipient=%s",
+                purpose,
+                MailService.mask_email(email),
+            )
+            raise OTPRequestError() from exc
 
-            message_kwargs = {
-                "subject": subject,
-                "recipients": [email],
-                "body": body,
-                "html": html,
-            }
-            if sender:
-                message_kwargs["sender"] = sender
-
-            message = Message(**message_kwargs)
-            mail.send(message)
-        except Exception as e:
-            print(e)
-            current_app.logger.exception("OTP email delivery failed for %s", email)
-            raise ValueError("Unable to send OTP. Please check server settings.")
+        MailService.send_email(
+            recipient=email,
+            subject=subject,
+            text_body=body,
+            html_body=html,
+            context=f"otp.{purpose}",
+        )
 
     @staticmethod
     def _issue_otp_challenge(email: str, purpose: str, payload: dict | None = None) -> EmailOTPChallenge:
         otp_code = AuthService._generate_otp_code()
         now = utcnow()
+        masked_email = MailService.mask_email(email)
         try:
             active_challenges = EmailOTPChallenge.query.filter(
                 EmailOTPChallenge.email == email,
@@ -374,12 +370,62 @@ class AuthService:
                 attempt_count=0,
             )
             db.session.add(challenge)
-            AuthService._send_otp_email(email, otp_code, purpose)
             db.session.commit()
-            return challenge
         except Exception:
             db.session.rollback()
+            current_app.logger.exception(
+                "OTP DB/session save failed. purpose=%s recipient=%s",
+                purpose,
+                masked_email,
+            )
+            raise OTPRequestError() from None
+
+        current_app.logger.info(
+            "OTP challenge saved. challenge_id=%s purpose=%s recipient=%s",
+            challenge.id,
+            purpose,
+            masked_email,
+        )
+
+        try:
+            AuthService._send_otp_email(email, otp_code, purpose)
+        except OTPRequestError:
             raise
+        except Exception as exc:
+            current_app.logger.exception(
+                "Unexpected OTP delivery failure. challenge_id=%s purpose=%s recipient=%s",
+                challenge.id,
+                purpose,
+                masked_email,
+            )
+            raise OTPRequestError() from exc
+
+        return challenge
+
+    @staticmethod
+    def _log_activity_safely(
+        user_id: int | None,
+        action: str,
+        target_type: str,
+        target_id: str,
+        details: dict | None = None,
+    ) -> None:
+        try:
+            AuthService.log_activity(
+                user_id,
+                action,
+                target_type,
+                target_id,
+                details=details,
+            )
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception(
+                "Activity log write failed. action=%s target_type=%s target_id=%s",
+                action,
+                target_type,
+                target_id,
+            )
 
     @staticmethod
     def start_signup_otp(
@@ -419,7 +465,7 @@ class AuthService:
             purpose=AuthService.OTP_PURPOSE_SIGNUP,
             payload=payload,
         )
-        AuthService.log_activity(None, "otp.signup.sent", "email", normalized_email)
+        AuthService._log_activity_safely(None, "otp.signup.sent", "email", normalized_email)
         return challenge
 
     @staticmethod
@@ -436,7 +482,7 @@ class AuthService:
             purpose=AuthService.OTP_PURPOSE_LOGIN,
             payload={"user_id": user.id},
         )
-        AuthService.log_activity(user.id, "otp.login.sent", "user", str(user.id))
+        AuthService._log_activity_safely(user.id, "otp.login.sent", "user", str(user.id))
         return challenge
 
     @staticmethod
@@ -505,7 +551,12 @@ class AuthService:
             AuthService._apply_referral_reward(user, payload.get("referral_code"))
             challenge.used_at = utcnow()
             db.session.commit()
-            AuthService.log_activity(user.id, "user.signup.otp_verified", "user", str(user.id))
+            AuthService._log_activity_safely(
+                user.id,
+                "user.signup.otp_verified",
+                "user",
+                str(user.id),
+            )
             return user
 
         if purpose_key == AuthService.OTP_PURPOSE_LOGIN:
@@ -526,7 +577,12 @@ class AuthService:
                 user.is_verified = True
             challenge.used_at = utcnow()
             db.session.commit()
-            AuthService.log_activity(user.id, "user.login.otp_verified", "user", str(user.id))
+            AuthService._log_activity_safely(
+                user.id,
+                "user.login.otp_verified",
+                "user",
+                str(user.id),
+            )
             return user
 
         challenge.used_at = utcnow()

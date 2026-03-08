@@ -7,7 +7,9 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# Load local .env only as a fallback for development.
+# Platform env vars (e.g., Render) remain authoritative because override=False.
+load_dotenv(BASE_DIR / ".env", override=False)
 
 
 def _read_env_int(name: str, default: int = 0) -> int:
@@ -85,10 +87,9 @@ class Config:
     OCR_LANG = os.environ.get("OCR_LANG", "eng")
     TRANSLATION_PROVIDER = os.environ.get("TRANSLATION_PROVIDER", "")
     MAIL_SERVER = (os.environ.get("MAIL_SERVER", "") or "").strip()
-    MAIL_PORT = _read_env_int("MAIL_PORT", 0)
-    # OTP delivery requires TLS-enabled SMTP transport.
-    MAIL_USE_TLS = True
-    MAIL_USE_SSL = False
+    MAIL_PORT = _read_env_int("MAIL_PORT", 587)
+    MAIL_USE_TLS = _read_env_bool("MAIL_USE_TLS", True)
+    MAIL_USE_SSL = _read_env_bool("MAIL_USE_SSL", False)
     MAIL_USERNAME = (os.environ.get("MAIL_USERNAME", "") or "").strip()
     # Google App Password is often copied with spaces; normalize to compact form.
     MAIL_PASSWORD = "".join((os.environ.get("MAIL_PASSWORD", "") or "").strip().split())
@@ -100,6 +101,7 @@ class Config:
         os.environ.get("MAIL_SENDER_NAME", "PDFMaster Security")
         or "PDFMaster Security"
     ).strip()
+    MAIL_TIMEOUT_SECONDS = max(1, _read_env_int("MAIL_TIMEOUT_SECONDS", 10))
     EMAIL_LOGO_URL = (
         os.environ.get(
             "EMAIL_LOGO_URL",
@@ -107,6 +109,10 @@ class Config:
         )
         or "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg"
     ).strip()
+    PUBLIC_BASE_URL = (
+        os.environ.get("PUBLIC_BASE_URL", "https://pdf-master-ultra-suite.onrender.com")
+        or "https://pdf-master-ultra-suite.onrender.com"
+    ).strip().rstrip("/")
     OTP_TTL_MINUTES = int(os.environ.get("OTP_TTL_MINUTES", 2))
     OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", 5))
     GOOGLE_CLIENT_ID = (os.environ.get("GOOGLE_CLIENT_ID", "") or "").strip()
