@@ -45,9 +45,11 @@ def _normalize_database_url(raw_url: str) -> str:
     value = (raw_url or "").strip()
     if not value:
         return ""
-    # Backward compatibility with old Heroku-style scheme.
+    # Normalize Postgres URLs to SQLAlchemy psycopg v3 dialect.
     if value.startswith("postgres://"):
-        return value.replace("postgres://", "postgresql://", 1)
+        return value.replace("postgres://", "postgresql+psycopg://", 1)
+    if value.startswith("postgresql://") and not value.startswith("postgresql+"):
+        return value.replace("postgresql://", "postgresql+psycopg://", 1)
     return value
 
 
