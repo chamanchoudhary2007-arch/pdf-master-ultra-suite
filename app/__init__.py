@@ -313,24 +313,39 @@ def register_commands(app: Flask) -> None:
     from sqlalchemy import inspect, text
 
     def _upgrade_or_stamp_legacy() -> str:
-        """Apply migrations, or stamp head for legacy pre-migration databases."""
+        """Apply migrations with safeguards for legacy and inconsistent schemas."""
+        from flask_migrate import stamp
+
         inspector = inspect(db.engine)
+        legacy_signature_tables = ("users", "tool_catalog", "managed_files", "jobs")
+        core_table_presence = {
+            table_name: inspector.has_table(table_name)
+            for table_name in legacy_signature_tables
+        }
+        has_any_core_table = any(core_table_presence.values())
+        has_all_core_tables = all(core_table_presence.values())
+
         has_alembic_table = inspector.has_table("alembic_version")
         has_alembic_version = False
         if has_alembic_table:
             version_rows = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
             has_alembic_version = bool(version_rows)
-        has_legacy_tables = any(
-            inspector.has_table(table_name)
-            for table_name in ("users", "tool_catalog", "jobs")
-        )
-        if has_legacy_tables and not has_alembic_version:
-            from flask_migrate import stamp
+
+        if has_alembic_version and not has_any_core_table:
+            stamp(revision="base")
+            current_app.logger.warning(
+                "Alembic version found but core tables are missing. Reset to base and re-applied migrations."
+            )
+            upgrade()
+            return "repaired"
+
+        if has_all_core_tables and not has_alembic_version:
             stamp(revision="head")
             current_app.logger.warning(
                 "Legacy database detected (pre-migrations). Stamped alembic head without schema changes."
             )
             return "stamped"
+
         upgrade()
         return "upgraded"
 
@@ -340,6 +355,8 @@ def register_commands(app: Flask) -> None:
         status = _upgrade_or_stamp_legacy()
         if status == "stamped":
             print("Legacy schema detected. Migration head stamped successfully.")
+        elif status == "repaired":
+            print("Inconsistent migration state detected. Schema repaired and migrations applied.")
         else:
             print("Database migrations applied.")
 

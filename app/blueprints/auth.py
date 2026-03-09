@@ -60,6 +60,11 @@ def _build_google_entry_url(next_url: str, referral_code: str = "") -> str:
 
 
 def _build_google_callback_url() -> str:
+    configured_uri = (current_app.config.get("GOOGLE_REDIRECT_URI") or "").strip()
+    if configured_uri.startswith(("http://", "https://")):
+        return configured_uri
+    if configured_uri.startswith("/"):
+        return f"{UrlService.public_base_url()}{configured_uri}"
     return UrlService.build_external_url("auth.google_auth")
 
 

@@ -51,9 +51,10 @@ python -m pip install -r requirements.txt
 2. Set minimum required values:
 - `SECRET_KEY`
 - `DATABASE_URL`
+  - fallback also supported: `DATABASE_URI`
 
 Optional feature settings:
-- Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, optional `GOOGLE_REDIRECT_URI`
 - Admin allowlist: `ADMIN_ALLOWED_EMAILS`
 - Payments: `PAYMENT_MODE`, Razorpay keys
 - SMTP (signature reminders): `SMTP_HOST`, `SMTP_FROM_EMAIL`, etc.

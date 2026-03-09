@@ -53,14 +53,18 @@ def _normalize_database_url(raw_url: str) -> str:
     return value
 
 
+def _read_database_url() -> str:
+    primary = (os.environ.get("DATABASE_URL", "") or "").strip()
+    fallback = (os.environ.get("DATABASE_URI", "") or "").strip()
+    return _normalize_database_url(primary or fallback)
+
+
 class Config:
     APP_NAME = "PDFMaster Ultra Suite"
     ENV_NAME = (os.environ.get("APP_CONFIG", "development") or "development").strip().lower()
 
     SECRET_KEY = (os.environ.get("SECRET_KEY", "") or "").strip()
-    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
-        os.environ.get("DATABASE_URL", "")
-    ) or f"sqlite:///{(BASE_DIR / 'instance' / 'pdfmaster_ultra.db').as_posix()}"
+    SQLALCHEMY_DATABASE_URI = _read_database_url() or f"sqlite:///{(BASE_DIR / 'instance' / 'pdfmaster_ultra.db').as_posix()}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
@@ -144,6 +148,7 @@ class Config:
         )
         or "https://accounts.google.com/.well-known/openid-configuration"
     ).strip()
+    GOOGLE_REDIRECT_URI = (os.environ.get("GOOGLE_REDIRECT_URI", "") or "").strip()
 
     PUBLIC_BASE_URL = (os.environ.get("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
 
