@@ -1,24 +1,28 @@
 from __future__ import annotations
 
-import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import Flask, current_app, url_for
+from flask import Flask, current_app, jsonify, render_template, request, session, url_for
 from flask_login import current_user
-from sqlalchemy import inspect, text
+from flask_migrate import upgrade
+from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import config_map
-from app.extensions import csrf, db, login_manager, mail, migrate, oauth
-from app.models import ManagedFile, User, generate_referral_code
-from app.services.mail_service import MailService
-from app.seeds import seed_admin_user, seed_tool_catalog
+from app.extensions import csrf, db, limiter, login_manager, migrate, oauth
+from app.models import ManagedFile, User
+from app.services.url_service import UrlService
+from app.startup import bootstrap_reference_data, configure_logging, validate_runtime_config
 
 
 def create_app(config_name: str = "default") -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_map.get(config_name, config_map["default"]))
-    _apply_runtime_mail_env(app)
-    _log_mail_configuration(app)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+    configure_logging(app)
+    validate_runtime_config(app)
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     for key in ("UPLOAD_ROOT", "OUTPUT_ROOT", "CLOUD_ROOT", "SCAN_ROOT"):
@@ -27,95 +31,14 @@ def create_app(config_name: str = "default") -> Flask:
     register_extensions(app)
     register_blueprints(app)
     register_hooks(app)
+    register_error_handlers(app)
     register_commands(app)
     register_template_helpers(app)
 
     with app.app_context():
-        db.create_all()
-        ensure_user_referral_schema()
-        seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
-        seed_admin_user()
+        bootstrap_reference_data(app)
 
     return app
-
-
-def _env_bool(raw_value: str | None, default: bool) -> bool:
-    if raw_value is None:
-        return default
-    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _apply_runtime_mail_env(app: Flask) -> None:
-    mail_server = (os.environ.get("MAIL_SERVER") or "").strip()
-    if mail_server:
-        app.config["MAIL_SERVER"] = mail_server
-
-    mail_port_raw = (os.environ.get("MAIL_PORT") or "").strip()
-    if mail_port_raw:
-        try:
-            app.config["MAIL_PORT"] = int(mail_port_raw)
-        except ValueError:
-            app.logger.error(
-                "Invalid MAIL_PORT value '%s'. Falling back to %s.",
-                mail_port_raw,
-                app.config.get("MAIL_PORT", 587),
-            )
-
-    app.config["MAIL_USE_TLS"] = _env_bool(
-        os.environ.get("MAIL_USE_TLS"),
-        bool(app.config.get("MAIL_USE_TLS", True)),
-    )
-    app.config["MAIL_USE_SSL"] = _env_bool(
-        os.environ.get("MAIL_USE_SSL"),
-        bool(app.config.get("MAIL_USE_SSL", False)),
-    )
-
-    mail_username = (os.environ.get("MAIL_USERNAME") or "").strip()
-    if mail_username:
-        app.config["MAIL_USERNAME"] = mail_username
-
-    mail_password = (os.environ.get("MAIL_PASSWORD") or "").strip()
-    if mail_password:
-        app.config["MAIL_PASSWORD"] = "".join(mail_password.split())
-
-    mail_default_sender = (os.environ.get("MAIL_DEFAULT_SENDER") or "").strip()
-    if mail_default_sender:
-        app.config["MAIL_DEFAULT_SENDER"] = mail_default_sender
-
-    mail_sender_name = (os.environ.get("MAIL_SENDER_NAME") or "").strip()
-    if mail_sender_name:
-        app.config["MAIL_SENDER_NAME"] = mail_sender_name
-
-    mail_timeout_raw = (os.environ.get("MAIL_TIMEOUT_SECONDS") or "").strip()
-    if mail_timeout_raw:
-        try:
-            app.config["MAIL_TIMEOUT_SECONDS"] = max(1, int(mail_timeout_raw))
-        except ValueError:
-            app.logger.error(
-                "Invalid MAIL_TIMEOUT_SECONDS value '%s'. Falling back to %s.",
-                mail_timeout_raw,
-                app.config.get("MAIL_TIMEOUT_SECONDS", 10),
-            )
-
-
-def _log_mail_configuration(app: Flask) -> None:
-    settings, issues = MailService.inspect_config(app.config)
-    if issues:
-        app.logger.error(
-            "Mail configuration validation failed during config load: %s",
-            "; ".join(issues),
-        )
-        return
-
-    app.logger.info(
-        "Mail configuration loaded: server=%s port=%s tls=%s ssl=%s sender=%s timeout=%ss",
-        settings["server"],
-        settings["port"],
-        settings["use_tls"],
-        settings["use_ssl"],
-        MailService.mask_email(str(settings["default_sender"])),
-        settings["timeout"],
-    )
 
 
 def register_extensions(app: Flask) -> None:
@@ -123,8 +46,9 @@ def register_extensions(app: Flask) -> None:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
-    mail.init_app(app)
+    limiter.init_app(app)
     oauth.init_app(app)
+
     if (
         not getattr(oauth, "is_stub", False)
         and app.config.get("GOOGLE_CLIENT_ID")
@@ -144,63 +68,10 @@ def register_extensions(app: Flask) -> None:
         app.logger.warning(
             "Google OAuth keys found but Authlib is not installed. Install dependencies to enable Google sign-in."
         )
+
     login_manager.login_view = "auth.login"
     login_manager.login_message_category = "warning"
-
-
-def _generate_unique_referral_code_sql(conn) -> str:
-    for _ in range(64):
-        code = generate_referral_code()
-        exists = conn.execute(
-            text("SELECT 1 FROM users WHERE referral_code = :code LIMIT 1"),
-            {"code": code},
-        ).scalar()
-        if not exists:
-            return code
-    raise RuntimeError("Unable to generate unique referral code for schema upgrade.")
-
-
-def ensure_user_referral_schema() -> None:
-    inspector = inspect(db.engine)
-    if "users" not in inspector.get_table_names():
-        return
-
-    existing_columns = {column["name"] for column in inspector.get_columns("users")}
-    needs_update = any(
-        key not in existing_columns for key in ("referral_code", "referred_by", "total_referrals")
-    )
-
-    with db.engine.begin() as conn:
-        if "referral_code" not in existing_columns:
-            conn.execute(text("ALTER TABLE users ADD COLUMN referral_code VARCHAR(16)"))
-        if "referred_by" not in existing_columns:
-            conn.execute(text("ALTER TABLE users ADD COLUMN referred_by VARCHAR(16)"))
-        if "total_referrals" not in existing_columns:
-            conn.execute(
-                text("ALTER TABLE users ADD COLUMN total_referrals INTEGER NOT NULL DEFAULT 0")
-            )
-
-        conn.execute(text("UPDATE users SET total_referrals = COALESCE(total_referrals, 0)"))
-
-        missing_code_user_ids = conn.execute(
-            text("SELECT id FROM users WHERE referral_code IS NULL OR TRIM(referral_code) = ''")
-        ).scalars().all()
-        for user_id in missing_code_user_ids:
-            conn.execute(
-                text("UPDATE users SET referral_code = :referral_code WHERE id = :user_id"),
-                {
-                    "referral_code": _generate_unique_referral_code_sql(conn),
-                    "user_id": user_id,
-                },
-            )
-
-        conn.execute(
-            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_referral_code ON users (referral_code)")
-        )
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_referred_by ON users (referred_by)"))
-
-    if needs_update:
-        current_app.logger.info("Applied users referral schema compatibility upgrade.")
+    login_manager.session_protection = "strong"
 
 
 @login_manager.user_loader
@@ -210,33 +81,144 @@ def load_user(user_id: str) -> User | None:
 
 def register_blueprints(app: Flask) -> None:
     from app.blueprints.admin import admin_bp
+    from app.blueprints.api import api_bp
     from app.blueprints.auth import auth_bp
     from app.blueprints.main import main_bp
     from app.blueprints.tools import tools_bp
+    from app.blueprints.workspace import workspace_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(tools_bp, url_prefix="/tools")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(workspace_bp)
+    app.register_blueprint(api_bp)
+
+
+def _build_csp(app: Flask) -> str:
+    allow_unsafe_inline = bool(app.config.get("CSP_ALLOW_UNSAFE_INLINE"))
+    style_src = ["'self'", "https://cdn.jsdelivr.net"]
+    script_src = ["'self'", "https://cdn.jsdelivr.net", "https://checkout.razorpay.com"]
+    if allow_unsafe_inline:
+        style_src.append("'unsafe-inline'")
+        script_src.append("'unsafe-inline'")
+
+    directives = {
+        "default-src": [
+            "'self'",
+            "https://cdn.jsdelivr.net",
+            "https://checkout.razorpay.com",
+            "https://api.razorpay.com",
+        ],
+        "img-src": ["'self'", "data:", "blob:", "https://*.razorpay.com"],
+        "style-src": style_src,
+        "script-src": script_src,
+        "font-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        "connect-src": ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+        "frame-src": ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "frame-ancestors": ["'self'"],
+        "form-action": ["'self'"],
+    }
+    return "; ".join(f"{directive} {' '.join(values)}" for directive, values in directives.items())
 
 
 def register_hooks(app: Flask) -> None:
+    @app.before_request
+    def make_session_permanent() -> None:
+        session.permanent = True
+        if not app.config.get("AUTO_TEMP_CLEANUP", True):
+            return
+
+        now = datetime.now(timezone.utc)
+        interval_minutes = int(app.config.get("AUTO_TEMP_CLEANUP_INTERVAL_MINUTES") or 60)
+        interval_minutes = max(5, interval_minutes)
+        last_run = app.config.get("_AUTO_TEMP_CLEANUP_LAST_RUN_AT")
+        if isinstance(last_run, datetime):
+            if last_run.tzinfo is None:
+                last_run = last_run.replace(tzinfo=timezone.utc)
+            if now - last_run < timedelta(minutes=interval_minutes):
+                return
+
+        from app.services.storage_service import StorageService
+
+        try:
+            StorageService.cleanup_expired_temp_files()
+        except Exception:
+            app.logger.exception("Scheduled temp file cleanup failed")
+        finally:
+            app.config["_AUTO_TEMP_CLEANUP_LAST_RUN_AT"] = now
+
     @app.after_request
     def apply_security_headers(response):
+        if app.config.get("DISABLE_SECURITY_HEADERS"):
+            return response
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=()"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self' https://cdn.jsdelivr.net https://checkout.razorpay.com https://api.razorpay.com; "
-            "img-src 'self' data: blob: https://*.razorpay.com; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://checkout.razorpay.com; "
-            "font-src 'self' data: https://cdn.jsdelivr.net; "
-            "connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com; "
-            "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;"
-        )
+        response.headers["Content-Security-Policy"] = _build_csp(app)
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+
+        if request.is_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
         return response
+
+
+def register_error_handlers(app: Flask) -> None:
+    def _wants_json_response() -> bool:
+        if request.path.startswith("/billing/") or request.path.startswith("/api/"):
+            return True
+        if request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest":
+            return True
+        return request.accept_mimetypes.best == "application/json"
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(exc: HTTPException):
+        if exc.code == 429:
+            too_many_message = "Too many requests. Please wait a moment and try again."
+            if _wants_json_response():
+                return jsonify({"error": too_many_message}), 429
+            return (
+                render_template(
+                    "errors/error.html",
+                    status_code=429,
+                    title="Too Many Requests",
+                    message=too_many_message,
+                ),
+                429,
+            )
+        if _wants_json_response():
+            return jsonify({"error": exc.description or exc.name}), exc.code
+        return (
+            render_template(
+                "errors/error.html",
+                status_code=exc.code,
+                title=exc.name,
+                message=exc.description,
+            ),
+            exc.code,
+        )
+
+    @app.errorhandler(Exception)
+    def handle_exception(exc: Exception):
+        current_app.logger.exception("Unhandled exception")
+        if _wants_json_response():
+            return jsonify({"error": "Something went wrong while processing your request."}), 500
+        return (
+            render_template(
+                "errors/error.html",
+                status_code=500,
+                title="Server Error",
+                message="Something went wrong while processing your request.",
+            ),
+            500,
+        )
 
 
 def register_template_helpers(app: Flask) -> None:
@@ -247,12 +229,19 @@ def register_template_helpers(app: Flask) -> None:
 
     @app.context_processor
     def inject_globals():
+        from app.services.auth_service import AuthService
+        from app.services.subscription_service import SubscriptionService
+
         is_premium_user = False
         profile_photo_url = None
+        can_access_admin = False
+        can_manage_admin = False
+        admin_role = "user"
         if current_user.is_authenticated:
-            from app.services.subscription_service import SubscriptionService
-
             is_premium_user = SubscriptionService.is_user_premium(current_user)
+            admin_role = AuthService.effective_portal_role(current_user)
+            can_access_admin = AuthService.can_access_admin_panel(current_user)
+            can_manage_admin = AuthService.has_admin_access(current_user, min_role="admin")
             profile_photo = (
                 ManagedFile.query.filter_by(
                     user_id=current_user.id,
@@ -264,13 +253,40 @@ def register_template_helpers(app: Flask) -> None:
             )
             if profile_photo:
                 profile_photo_url = url_for("main.preview_file", file_id=profile_photo.id)
+
+        password_reset_help_email = (
+            current_app.config.get("PASSWORD_RESET_HELP_EMAIL")
+            or current_app.config.get("ADMIN_EMAIL")
+            or "pdfmasterultrasuite@gmail.com"
+        ).strip()
+        account_email_line = (
+            f"Account email: {current_user.email}\n"
+            if current_user.is_authenticated
+            else ""
+        )
+        password_reset_help_link = UrlService.gmail_compose_url(
+            to_email=password_reset_help_email,
+            subject=f"{current_app.config['APP_NAME']} - Help to forget key",
+            body=(
+                "Hello Admin,\n\n"
+                "I forgot my 4-digit password reset key. Please help me regain access.\n"
+                f"{account_email_line}"
+                "Reason: \n\n"
+                "Thanks."
+            ),
+        )
+
         return {
             "APP_NAME": current_app.config["APP_NAME"],
             "is_premium_user": is_premium_user,
             "profile_photo_url": profile_photo_url,
-            "billing_settings_url": current_app.config.get(
-                "BILLING_SETTINGS_URL",
-                "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing",
+            "can_access_admin": can_access_admin,
+            "can_manage_admin": can_manage_admin,
+            "admin_role": admin_role,
+            "billing_settings_url": UrlService.resolve_app_url(
+                "main.settings",
+                config_key="BILLING_SETTINGS_URL",
+                tab="billing",
             ),
             "tool_categories": [
                 "Organize",
@@ -285,21 +301,68 @@ def register_template_helpers(app: Flask) -> None:
                 "OCR",
                 "AI Tools",
             ],
+            "max_single_upload_mb": int(current_app.config["MAX_SINGLE_UPLOAD_BYTES"] / (1024 * 1024)),
+            "password_reset_help_email": password_reset_help_email,
+            "password_reset_help_link": password_reset_help_link,
         }
 
 
 def register_commands(app: Flask) -> None:
-    from app.extensions import db
     from app.seeds import seed_admin_user, seed_tool_catalog
     from app.services.storage_service import StorageService
+    from sqlalchemy import inspect, text
+
+    def _upgrade_or_stamp_legacy() -> str:
+        """Apply migrations, or stamp head for legacy pre-migration databases."""
+        inspector = inspect(db.engine)
+        has_alembic_table = inspector.has_table("alembic_version")
+        has_alembic_version = False
+        if has_alembic_table:
+            version_rows = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
+            has_alembic_version = bool(version_rows)
+        has_legacy_tables = any(
+            inspector.has_table(table_name)
+            for table_name in ("users", "tool_catalog", "jobs")
+        )
+        if has_legacy_tables and not has_alembic_version:
+            from flask_migrate import stamp
+            stamp(revision="head")
+            current_app.logger.warning(
+                "Legacy database detected (pre-migrations). Stamped alembic head without schema changes."
+            )
+            return "stamped"
+        upgrade()
+        return "upgraded"
 
     @app.cli.command("init-db")
     def init_db_command() -> None:
-        db.create_all()
-        ensure_user_referral_schema()
-        seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
+        """Apply migrations (or stamp legacy schema) only."""
+        status = _upgrade_or_stamp_legacy()
+        if status == "stamped":
+            print("Legacy schema detected. Migration head stamped successfully.")
+        else:
+            print("Database migrations applied.")
+
+    @app.cli.command("seed-data")
+    def seed_data_command() -> None:
+        """Seed tool catalog and optional admin user."""
+        created = seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
         seed_admin_user()
-        print("Database initialized and seed data loaded.")
+        print(f"Seed complete. created_tool_rows={created}")
+
+    @app.cli.command("init-app")
+    def init_app_command() -> None:
+        """Apply migrations and seed initial data."""
+        status = _upgrade_or_stamp_legacy()
+        created = seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
+        seed_admin_user()
+        print(f"App initialized ({status}). created_tool_rows={created}")
+
+    @app.cli.command("check-config")
+    def check_config_command() -> None:
+        """Validate runtime configuration."""
+        validate_runtime_config(current_app)
+        print("Configuration looks valid.")
 
     @app.cli.command("cleanup-files")
     def cleanup_files_command() -> None:

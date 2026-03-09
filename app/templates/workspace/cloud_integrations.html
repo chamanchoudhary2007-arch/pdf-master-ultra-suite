@@ -1,0 +1,97 @@
+﻿{% extends 'base.html' %}
+{% block title %}Cloud Integrations | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">External storage</span>
+  <h1 class="h3 mb-2">Cloud import/export center</h1>
+  <p class="text-secondary mb-0">Connect providers securely and move files between workflows.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  {% for row in statuses %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h6 mb-0">{{ row.label }}</h2>
+          <span class="badge {{ 'text-bg-success' if row.connected else 'text-bg-light border' }}">{{ 'Connected' if row.connected else 'Disconnected' }}</span>
+        </div>
+        <p class="small text-muted">{% if row.configured %}Provider keys configured.{% else %}Provider disabled: add env keys to enable full OAuth flow.{% endif %}</p>
+
+        <form method="post" class="vstack gap-2 mb-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="provider" value="{{ row.provider }}">
+          <input type="hidden" name="action" value="connect">
+          <input class="form-control form-control-sm" type="email" name="account_email" value="{{ row.connection.account_email if row.connection else '' }}" placeholder="Account email">
+          <input class="form-control form-control-sm" type="text" name="access_token" placeholder="Access token (optional)">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Save connection</button>
+        </form>
+
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="provider" value="{{ row.provider }}">
+          <input type="hidden" name="action" value="disconnect">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Disconnect</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Import from provider</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="import">
+          <select class="form-select" name="provider">{% for row in statuses %}<option value="{{ row.provider }}">{{ row.label }}</option>{% endfor %}</select>
+          <input class="form-control" type="file" name="cloud_upload" required>
+          <button class="btn btn-primary" type="submit">Import file</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Export to provider</h2>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="export">
+          <select class="form-select" name="provider">{% for row in statuses %}<option value="{{ row.provider }}">{{ row.label }}</option>{% endfor %}</select>
+          <select class="form-select" name="file_id">
+            {% for file in files %}<option value="{{ file.id }}">{{ file.original_name }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-primary" type="submit">Export file</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Transfer logs</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Time</th><th>Provider</th><th>Direction</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td>{{ log.created_at.strftime('%d %b %H:%M') }}</td>
+            <td>{{ log.provider }}</td>
+            <td>{{ log.direction }}</td>
+            <td>{{ log.status }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-secondary">No transfer logs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

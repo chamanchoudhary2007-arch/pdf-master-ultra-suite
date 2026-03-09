@@ -1,17 +1,30 @@
 {% extends 'base.html' %}
-{% block title %}{{ APP_NAME }} | Daily Productivity PDF Platform{% endblock %}
+{% block title %}{{ APP_NAME }} | Secure PDF Tools for Daily Work{% endblock %}
 {% block content %}
 <section class="hero-shell mb-5">
   <div class="row g-4 align-items-center">
     <div class="col-lg-7">
-      <span class="eyebrow">Daily Productivity Document Platform</span>
-      <h1 class="display-5 fw-semibold mb-3">Process, scan, sign, organize, convert and secure documents from one premium workspace.</h1>
+      <span class="eyebrow">All-in-one PDF workspace</span>
+      <h1 class="display-5 fw-semibold mb-3">Merge, split, convert, OCR, sign, and share files in one secure dashboard.</h1>
       <p class="lead text-secondary mb-4">
-        Built for students, office teams, HR, legal workflows, teachers, and freelancers. The platform ships with a seeded catalog of 1000+ tool slots, wallet billing, admin control, dark mode, and modular PDF engines.
+        Designed for students, offices, teachers, legal teams, and freelancers. Process documents quickly with clear pricing, secure uploads, and audit-ready history.
       </p>
+      {% if current_user.is_authenticated %}
+      <p class="small text-secondary mb-3">
+        Welcome back{% if current_user.full_name %}, {{ current_user.full_name.split(' ')[0] }}{% endif %}. Continue from your workspace.
+      </p>
+      {% endif %}
       <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-primary btn-lg" href="{{ url_for('auth.signup') }}">Start Free</a>
-        <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('auth.login') }}">Login</a>
+        {% if current_user.is_authenticated %}
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.dashboard') }}">Open Dashboard</a>
+        <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('workspace.index') }}">My Workspace</a>
+        <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.all_tools') }}">All Tools</a>
+        <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.dashboard') }}">Continue Working</a>
+      {% else %}
+      <a class="btn btn-primary btn-lg" href="{{ url_for('auth.signup') }}">Create free account</a>
+      <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('auth.login') }}">Login</a>
+      <a class="btn btn-outline-secondary btn-lg" href="#formats">Supported formats</a>
+      {% endif %}
       </div>
     </div>
     <div class="col-lg-5">
@@ -26,14 +39,34 @@
             <strong>{{ summary.enabled_tools }}</strong>
           </div>
           <div class="metric-card">
-            <span>Secure Wallet</span>
-            <strong>Mock Gateway</strong>
+            <span>Payment mode</span>
+            <strong>{{ 'Demo' if payment_mode == 'demo' else 'Live' }}</strong>
           </div>
           <div class="metric-card">
-            <span>Modes</span>
-            <strong>Student / Office</strong>
+            <span>Security</span>
+            <strong>CSRF + role checks</strong>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mb-5" id="formats">
+  <div class="feature-card">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <span class="eyebrow">Supported formats</span>
+        <h2 class="h4 mb-1">PDF, Office files, images, text, and ZIP uploads</h2>
+        <p class="text-secondary mb-0">Upload limits and file type checks are enforced server-side for safer processing.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="price-chip">PDF</span>
+        <span class="price-chip">DOCX</span>
+        <span class="price-chip">PPTX</span>
+        <span class="price-chip">XLSX</span>
+        <span class="price-chip">PNG/JPG</span>
+        <span class="price-chip">TXT/MD</span>
       </div>
     </div>
   </div>
@@ -43,21 +76,21 @@
   <div class="row g-4">
     <div class="col-md-4">
       <div class="feature-card h-100">
-        <i class="bi bi-journal-check feature-icon"></i>
+        <i class="bi bi-journal-check feature-icon" data-icon-fallback="S" aria-hidden="true"></i>
         <h2 class="h5">Students + Teachers + Govt Workflows</h2>
         <p class="text-secondary">Study Pack Pro, Teacher Toolkit, Government Office Suite, and smart automation pipelines for daily production work.</p>
       </div>
     </div>
     <div class="col-md-4">
       <div class="feature-card h-100">
-        <i class="bi bi-grid feature-icon"></i>
+        <i class="bi bi-grid feature-icon" data-icon-fallback="C" aria-hidden="true"></i>
         <h2 class="h5">Catalog-Driven Architecture</h2>
         <p class="text-secondary">Each tool is governed from the catalog, can be priced independently, enabled by admins, and tracked through job history.</p>
       </div>
     </div>
     <div class="col-md-4">
       <div class="feature-card h-100">
-        <i class="bi bi-shield-check feature-icon"></i>
+        <i class="bi bi-shield-check feature-icon" data-icon-fallback="S" aria-hidden="true"></i>
         <h2 class="h5">Security by Default</h2>
         <p class="text-secondary">CSRF protection, secure headers, file validation, isolated storage roots, wallet logs, and role-based access control.</p>
       </div>
@@ -71,13 +104,13 @@
       <div>
         <span class="eyebrow">Trusted Platform</span>
         <h2 class="h4 mb-1">Secure uploads. Reliable output. Clean workflow.</h2>
-        <p class="text-secondary mb-0">Built with secure validation, job history tracking, and premium-grade processing flow.</p>
+        <p class="text-secondary mb-0">Built with secure validation, job history tracking, and isolated output handling.</p>
       </div>
       <div class="d-flex flex-wrap gap-2">
         <span class="price-chip"><i class="bi bi-shield-check me-1"></i>Secure Validation</span>
         <span class="price-chip"><i class="bi bi-cloud-check me-1"></i>Cloud Ready</span>
         <span class="price-chip"><i class="bi bi-graph-up me-1"></i>Admin Analytics</span>
-        <span class="price-chip"><i class="bi bi-gem me-1"></i>Premium Experience</span>
+        <span class="price-chip"><i class="bi bi-clock-history me-1"></i>Job Tracking</span>
       </div>
     </div>
   </div>
@@ -93,28 +126,28 @@
   <div class="row g-4">
     <div class="col-md-6 col-xl-3">
       <div class="feature-card h-100">
-        <i class="bi bi-lightning-charge feature-icon"></i>
+        <i class="bi bi-lightning-charge feature-icon" data-icon-fallback="F" aria-hidden="true"></i>
         <h3 class="h6 mt-3">Fast processing</h3>
         <p class="text-secondary small mb-0">Optimized pipeline for quick conversions, splitting, OCR and secure exports.</p>
       </div>
     </div>
     <div class="col-md-6 col-xl-3">
       <div class="feature-card h-100">
-        <i class="bi bi-shield-lock feature-icon"></i>
+        <i class="bi bi-shield-lock feature-icon" data-icon-fallback="S" aria-hidden="true"></i>
         <h3 class="h6 mt-3">Secure by default</h3>
         <p class="text-secondary small mb-0">Strict upload validation, secure sessions, role-based access and protected routes.</p>
       </div>
     </div>
     <div class="col-md-6 col-xl-3">
       <div class="feature-card h-100">
-        <i class="bi bi-collection feature-icon"></i>
+        <i class="bi bi-collection feature-icon" data-icon-fallback="A" aria-hidden="true"></i>
         <h3 class="h6 mt-3">All-in-one catalog</h3>
         <p class="text-secondary small mb-0">Merge, compress, split, OCR, convert, watermark and many advanced workflows.</p>
       </div>
     </div>
     <div class="col-md-6 col-xl-3">
       <div class="feature-card h-100">
-        <i class="bi bi-graph-up-arrow feature-icon"></i>
+        <i class="bi bi-graph-up-arrow feature-icon" data-icon-fallback="M" aria-hidden="true"></i>
         <h3 class="h6 mt-3">Made to scale</h3>
         <p class="text-secondary small mb-0">Dashboard insights, job queue status, payment-ready plans and admin analytics.</p>
       </div>
@@ -126,10 +159,12 @@
 <section class="mb-5">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-      <span class="eyebrow">Main Icons</span>
-      <h2 class="h3 mb-0">Open a main icon and see related tools</h2>
+      <span class="eyebrow">Tool collections</span>
+      <h2 class="h3 mb-0">Open a category and explore related tools</h2>
     </div>
-    <a class="btn btn-outline-secondary" href="{{ url_for('auth.signup') }}">Access dashboard</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.signup') }}">
+      {{ 'Go to dashboard' if current_user.is_authenticated else 'Access dashboard' }}
+    </a>
   </div>
   <div class="vstack gap-3">
     {% for hub in main_tool_hubs %}
@@ -143,7 +178,7 @@
         aria-expanded="{{ 'true' if loop.first else 'false' }}"
         aria-controls="{{ collapse_id }}"
       >
-        <span class="tool-icon flex-shrink-0"><i class="bi {{ hub.icon_name }}"></i></span>
+        <span class="tool-icon flex-shrink-0" data-icon-fallback="{{ (hub.title or 'T')[0]|upper }}"><i class="bi {{ hub.icon_name }}"></i></span>
         <span class="flex-grow-1">
           <span class="main-hub-title">{{ hub.title }}</span>
           <span class="main-hub-desc">{{ hub.description }}</span>
@@ -154,7 +189,7 @@
       <div id="{{ collapse_id }}" class="collapse {{ 'show' if loop.first else '' }}">
         <div class="main-hub-tools">
           {% for tool in hub.tools %}
-          <a class="main-hub-tool" href="{{ url_for('auth.signup') }}">
+          <a class="main-hub-tool" href="{{ url_for('tools.tool_detail', tool_key=tool.tool_key) if current_user.is_authenticated else url_for('auth.signup') }}">
             <i class="bi {{ tool.icon_name }}"></i>
             <span>{{ tool.name }}</span>
             {% if tool.is_subscription_only %}
@@ -176,7 +211,9 @@
       <span class="eyebrow">Featured</span>
       <h2 class="h3 mb-0">Everyday document tools</h2>
     </div>
-    <a class="btn btn-outline-secondary" href="{{ url_for('auth.signup') }}">Open Dashboard</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.signup') }}">
+      {{ 'Open Dashboard' if current_user.is_authenticated else 'Create free account' }}
+    </a>
   </div>
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
     {% for tool in featured_tools %}
@@ -230,7 +267,11 @@
       <h2 class="h3 mb-1">Clear plans for every workflow</h2>
       <p class="text-secondary mb-0">Start free, then upgrade only when you need faster and larger workflows.</p>
     </div>
+    {% if current_user.is_authenticated %}
+    <a class="btn btn-primary btn-lg" href="{{ billing_settings_url }}">{{ 'Manage Plan' if is_premium_user else 'Upgrade to Pro' }}</a>
+    {% else %}
     <a class="btn btn-primary btn-lg" href="{{ url_for('auth.signup') }}">Create Account</a>
+    {% endif %}
   </div>
   <div class="row g-3">
     <div class="col-md-4">
@@ -243,6 +284,13 @@
           <li>Limited batch usage</li>
           <li>Basic downloads</li>
         </ul>
+        <div class="mt-3">
+          {% if current_user.is_authenticated %}
+          <a class="btn btn-outline-secondary w-100" href="{{ url_for('main.dashboard') }}">Continue Free</a>
+          {% else %}
+          <a class="btn btn-outline-secondary w-100" href="{{ url_for('auth.signup') }}">Start Free</a>
+          {% endif %}
+        </div>
       </div>
     </div>
     <div class="col-md-4">
@@ -255,6 +303,19 @@
           <li>No per-use charge during validity</li>
           <li>Priority productivity workflows</li>
         </ul>
+        <div class="mt-3">
+          {% if current_user.is_authenticated %}
+          <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plan_key" value="pro_monthly">
+            <button class="btn btn-primary w-100" type="button" data-upgrade-button data-default-label="Buy Premium">
+              BUY PREMIUM
+            </button>
+          </form>
+          {% else %}
+          <a class="btn btn-primary w-100" href="{{ url_for('auth.login', next=url_for('main.settings', tab='billing', _anchor='billing-plans')) }}">BUY PREMIUM</a>
+          {% endif %}
+        </div>
       </div>
     </div>
     <div class="col-md-4">
@@ -267,6 +328,19 @@
           <li>Lower effective daily cost</li>
           <li>Ideal for students and offices</li>
         </ul>
+        <div class="mt-3">
+          {% if current_user.is_authenticated %}
+          <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plan_key" value="pro_yearly">
+            <button class="btn btn-primary w-100" type="button" data-upgrade-button data-default-label="Buy Premium">
+              BUY PREMIUM
+            </button>
+          </form>
+          {% else %}
+          <a class="btn btn-primary w-100" href="{{ url_for('auth.login', next=url_for('main.settings', tab='billing', _anchor='billing-plans')) }}">BUY PREMIUM</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -306,4 +380,11 @@
     </div>
   </div>
 </section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+window.setupRazorpayUpgrade && window.setupRazorpayUpgrade();
+</script>
 {% endblock %}

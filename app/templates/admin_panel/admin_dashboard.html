@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Advanced Admin Pro | PDF Master Ultra Suite</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
   <style>
     body {
       min-height: 100vh;
@@ -360,9 +360,6 @@
                 <span class="badge badge-danger-soft">Banned</span>
                 {% elif row.issue_state == 'Unverified' %}
                 <span class="badge badge-danger-soft">Unverified</span>
-                {% elif row.issue_state == 'OTP Locked' %}
-                <span class="badge badge-warning-soft">OTP Locked</span>
-                <div class="muted-xs mt-1">{{ row.failed_attempts }}/{{ row.max_attempts }} failed OTP</div>
                 {% else %}
                 <span class="badge badge-success-soft">OK</span>
                 {% endif %}
@@ -378,16 +375,6 @@
                     <input type="hidden" name="action" value="toggle_ban">
                     <input type="hidden" name="return_to" value="{{ request.full_path }}">
                     <button class="btn btn-sm {{ 'btn-outline-success' if row.account_status == 'Banned' else 'btn-outline-danger' }}" type="submit">{{ 'Unban' if row.account_status == 'Banned' else 'Ban' }}</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}">
-                    <input type="hidden" name="action" value="password_reset">
-                    <input type="hidden" name="return_to" value="{{ request.full_path }}">
-                    <button class="btn btn-sm btn-outline-info" type="submit">Reset</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}">
-                    <input type="hidden" name="action" value="clear_sessions">
-                    <input type="hidden" name="return_to" value="{{ request.full_path }}">
-                    <button class="btn btn-sm btn-outline-light" type="submit">Sessions</button>
                   </form>
                 </div>
                 <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}" class="d-flex justify-content-end gap-1">
@@ -408,7 +395,7 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script>
     const labels = {{ finances.chart_labels|tojson }};

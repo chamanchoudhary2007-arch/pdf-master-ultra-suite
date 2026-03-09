@@ -9,6 +9,7 @@ from pathlib import Path
 from zipfile import is_zipfile
 
 from PIL import Image, UnidentifiedImageError
+from pypdf import PdfReader
 from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
@@ -40,6 +41,35 @@ class StorageService:
         ".sh",
     }
     VERIFY_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+    ALLOWED_MIME_TYPES_BY_EXTENSION = {
+        ".pdf": {
+            "application/pdf",
+            "application/x-pdf",
+            "application/acrobat",
+        },
+        ".png": {"image/png"},
+        ".jpg": {"image/jpeg"},
+        ".jpeg": {"image/jpeg"},
+        ".webp": {"image/webp"},
+        ".bmp": {"image/bmp", "image/x-ms-bmp"},
+        ".tif": {"image/tiff"},
+        ".tiff": {"image/tiff"},
+        ".txt": {"text/plain"},
+        ".md": {"text/plain", "text/markdown"},
+        ".csv": {"text/csv", "application/csv", "application/vnd.ms-excel"},
+        ".json": {"application/json", "text/json"},
+        ".zip": {"application/zip", "application/x-zip-compressed", "multipart/x-zip"},
+        ".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        ".pptx": {"application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+        ".xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+        ".doc": {"application/msword"},
+        ".ppt": {"application/vnd.ms-powerpoint"},
+        ".xls": {"application/vnd.ms-excel"},
+        ".rtf": {"application/rtf", "text/rtf"},
+        ".html": {"text/html"},
+        ".htm": {"text/html"},
+        ".svg": {"image/svg+xml"},
+    }
     TEMP_STORAGE_KINDS = {"upload", "output", "signature", "scanner"}
 
     @staticmethod
@@ -79,6 +109,27 @@ class StorageService:
         return hasher.hexdigest()
 
     @staticmethod
+    def _normalize_mime(mime_value: str | None) -> str:
+        return (mime_value or "").strip().lower()
+
+    @staticmethod
+    def _validate_mime_for_extension(ext: str, mime_value: str | None) -> None:
+        normalized_ext = (ext or "").strip().lower()
+        normalized_mime = StorageService._normalize_mime(mime_value)
+        if not normalized_ext:
+            return
+        if not normalized_mime:
+            return
+        # Browsers and some clients can send octet-stream for valid uploads.
+        if normalized_mime == "application/octet-stream":
+            return
+        allowed_mimes = StorageService.ALLOWED_MIME_TYPES_BY_EXTENSION.get(normalized_ext)
+        if not allowed_mimes:
+            return
+        if normalized_mime not in allowed_mimes:
+            raise ValueError("Uploaded file type does not match the selected format.")
+
+    @staticmethod
     def _as_utc(value: datetime | None) -> datetime | None:
         if not value:
             return None
@@ -104,6 +155,11 @@ class StorageService:
                 header = stream.read(5)
             if header != b"%PDF-":
                 raise ValueError("Invalid PDF file. Upload a genuine PDF document.")
+            try:
+                reader = PdfReader(str(absolute_path))
+                _ = len(reader.pages)
+            except Exception as exc:
+                raise ValueError("PDF file is unreadable or corrupted.") from exc
 
         if ext in StorageService.VERIFY_IMAGE_EXTENSIONS:
             try:
@@ -172,6 +228,13 @@ class StorageService:
             raise ValueError("Please choose a file to upload.")
         safe_name = secure_filename(uploaded_file.filename)
         ext = StorageService._validate_extension(safe_name)
+        StorageService._validate_mime_for_extension(ext, uploaded_file.mimetype)
+        if uploaded_file.content_length:
+            max_single = int(current_app.config.get("MAX_SINGLE_UPLOAD_BYTES") or (25 * 1024 * 1024))
+            if int(uploaded_file.content_length) > max_single:
+                raise ValueError(
+                    f"File too large. Max allowed size is {max_single // (1024 * 1024)} MB per file."
+                )
         stored_name = f"{secrets.token_hex(16)}{ext}"
         absolute_path = StorageService._user_dir(user_id, kind) / stored_name
         try:
@@ -193,6 +256,8 @@ class StorageService:
     ) -> ManagedFile:
         safe_name = secure_filename(original_name)
         ext = StorageService._validate_extension(safe_name)
+        guessed_mime = mimetypes.guess_type(safe_name)[0] or ""
+        StorageService._validate_mime_for_extension(ext, guessed_mime)
         stored_name = f"{secrets.token_hex(16)}{ext}"
         absolute_path = StorageService._user_dir(user_id, kind) / stored_name
         absolute_path.write_bytes(content)
@@ -217,6 +282,8 @@ class StorageService:
             raise ValueError("File does not exist.")
         original_name = original_name or absolute.name
         ext = StorageService._validate_extension(original_name)
+        guessed_mime = mimetypes.guess_type(original_name)[0] or ""
+        StorageService._validate_mime_for_extension(ext, guessed_mime)
         StorageService._validate_saved_file_content(absolute, ext)
         return StorageService._build_record(
             user_id=user_id,
@@ -234,7 +301,10 @@ class StorageService:
         header, encoded = data_url.split(",", 1)
         if "png" not in header:
             raise ValueError("Signature data must be PNG.")
-        payload = base64.b64decode(encoded)
+        try:
+            payload = base64.b64decode(encoded, validate=True)
+        except Exception as exc:
+            raise ValueError("Invalid signature image payload.") from exc
         return StorageService.save_bytes(payload, "signature.png", user_id, "signature", "Drawn signature")
 
     @staticmethod
@@ -261,6 +331,13 @@ class StorageService:
         safe_name = secure_filename(new_name)
         if not safe_name:
             raise ValueError("Invalid file name.")
+        current_ext = Path(file_record.original_name).suffix.lower()
+        new_ext = Path(safe_name).suffix.lower()
+        if current_ext and new_ext and current_ext != new_ext:
+            raise ValueError("File extension cannot be changed.")
+        if current_ext and not new_ext:
+            safe_name = f"{safe_name}{current_ext}"
+        safe_name = safe_name[:255]
         file_record.original_name = safe_name
         db.session.commit()
         return file_record

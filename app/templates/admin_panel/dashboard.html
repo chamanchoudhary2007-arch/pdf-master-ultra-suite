@@ -18,10 +18,25 @@
       <div class="metric-inline"><span>Active</span><strong>{{ premium_summary.active_count }}</strong></div>
       <div class="metric-inline"><span>Expiring soon</span><strong>{{ premium_summary.expiring_count }}</strong></div>
     </div>
-    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.subscriptions') }}">
-      Open subscription manager
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.subscriptions') }}">
+        Open subscription manager
+      </a>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.advanced') }}">
+        Advanced monitoring
+      </a>
+    </div>
   </div>
+</section>
+<section class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Chat Sessions</span><strong>{{ advanced_summary.chat_sessions }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Bulk Batches</span><strong>{{ advanced_summary.bulk_batches }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Sign Requests</span><strong>{{ advanced_summary.signature_requests }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Team Workspaces</span><strong>{{ advanced_summary.team_workspaces }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Active API Keys</span><strong>{{ advanced_summary.api_keys }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>API Calls</span><strong>{{ advanced_summary.api_calls }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Compliance Reports</span><strong>{{ advanced_summary.compliance_reports }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Cloud Connections</span><strong>{{ advanced_summary.cloud_connections }}</strong></div></div>
 </section>
 <section class="row g-4">
   <div class="col-xl-5">

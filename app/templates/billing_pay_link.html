@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}Secure Payment Link | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="billing-pay-link-shell">
+  <article class="card border-0 shadow-sm billing-pay-link-card">
+    <div class="card-body p-4 p-lg-5">
+      <span class="eyebrow">Shared payment link</span>
+      <h1 class="h3 mb-2">Complete premium payment</h1>
+      {% if not is_valid %}
+      <p class="text-secondary mb-3">{{ error_message }}</p>
+      <a class="btn btn-primary" href="{{ url_for('main.settings', tab='billing', _anchor='billing') }}">Back to billing</a>
+      {% else %}
+      <p class="text-secondary mb-3">
+        Plan <strong>{{ plan_name }}</strong> • Amount <strong>{{ amount_paise|money }}</strong>
+      </p>
+
+      <div class="billing-pay-link-order mb-3">
+        <span>Order ID</span>
+        <strong class="text-break">{{ order_id }}</strong>
+      </div>
+      <div class="billing-pay-link-order mb-4">
+        <span>Status</span>
+        <strong class="text-capitalize">{{ status_key }}</strong>
+      </div>
+      <p class="small text-secondary mb-4">{{ status_message }}</p>
+
+      <div class="billing-pay-link-actions d-flex flex-wrap gap-2">
+        {% if can_pay %}
+        <button
+          class="btn btn-primary"
+          type="button"
+          id="payByLinkBtn"
+          data-order-id="{{ order_id }}"
+          data-amount="{{ amount_paise }}"
+          data-currency="{{ currency }}"
+          data-plan-name="{{ plan_name }}"
+          data-callback-url="{{ callback_url }}"
+          data-key-id="{{ key_id }}"
+          data-app-name="{{ app_name }}"
+        >
+          <i class="bi bi-lock-fill me-1"></i>Secure Payment
+        </button>
+        {% elif status_key == 'success' %}
+        <a class="btn btn-success" href="{{ status_url }}">
+          <i class="bi bi-check2-circle me-1"></i>Payment Completed
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary" type="button" disabled>
+          Payment is unavailable right now
+        </button>
+        {% endif %}
+
+        <button class="btn btn-outline-secondary" type="button" id="copySharedPaymentLinkBtn" data-payment-link="{{ payment_link_url }}">
+          <i class="bi bi-link-45deg me-1"></i>Copy Payment Link
+        </button>
+        <a class="btn btn-outline-secondary" href="{{ status_url }}">
+          <i class="bi bi-receipt me-1"></i>Check Status
+        </a>
+      </div>
+      <div class="small text-muted mt-3 mb-0" id="billingPayLinkHint">
+        Share this link with payer. Premium activates automatically after verified payment.
+      </div>
+      {% endif %}
+    </div>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if can_pay and payment_mode == 'live' %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+{% endif %}
+<script>
+(function () {
+  const copyButton = document.getElementById("copySharedPaymentLinkBtn");
+  const hintNode = document.getElementById("billingPayLinkHint");
+  if (copyButton) {
+    copyButton.addEventListener("click", async function () {
+      const link = (copyButton.getAttribute("data-payment-link") || "").trim();
+      if (!link) {
+        return;
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(link);
+          if (hintNode) {
+            hintNode.textContent = "Payment link copied. Share it with the payer.";
+          }
+        } else {
+          window.prompt("Copy payment link:", link);
+        }
+      } catch (error) {
+        window.prompt("Copy payment link:", link);
+      }
+    });
+  }
+
+  const payButton = document.getElementById("payByLinkBtn");
+  if (!payButton) {
+    return;
+  }
+  payButton.addEventListener("click", function () {
+    if (typeof window.Razorpay === "undefined") {
+      if (hintNode) {
+        hintNode.textContent = "Razorpay checkout failed to load. Please refresh and try again.";
+      }
+      return;
+    }
+    payButton.disabled = true;
+    const amount = Number.parseInt(payButton.getAttribute("data-amount") || "0", 10);
+    const checkout = new window.Razorpay({
+      key: (payButton.getAttribute("data-key-id") || "").trim(),
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency: (payButton.getAttribute("data-currency") || "INR").trim(),
+      name: (payButton.getAttribute("data-app-name") || "PDFMaster Ultra Suite").trim(),
+      description: `${(payButton.getAttribute("data-plan-name") || "Premium Plan").trim()} Subscription`,
+      order_id: (payButton.getAttribute("data-order-id") || "").trim(),
+      callback_url: (payButton.getAttribute("data-callback-url") || "").trim(),
+      theme: { color: "#166d50" },
+      modal: {
+        ondismiss: function () {
+          payButton.disabled = false;
+        }
+      }
+    });
+    checkout.on("payment.failed", function () {
+      payButton.disabled = false;
+    });
+    checkout.open();
+  });
+})();
+</script>
+{% endblock %}

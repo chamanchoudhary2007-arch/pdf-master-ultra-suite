@@ -1,0 +1,80 @@
+﻿{% extends 'base.html' %}
+{% block title %}Signature Requests | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Send for signature</span>
+  <h1 class="h3 mb-2">Signature request workflow</h1>
+  <p class="text-secondary mb-0">Create drafts, set signer order, send links, and monitor status.</p>
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create request</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="create">
+          <input class="form-control" type="text" name="title" placeholder="Request title" required>
+          <textarea class="form-control" name="message" rows="2" placeholder="Message for signers"></textarea>
+          <input class="form-control" type="file" name="document" accept=".pdf" required>
+          <label class="form-label mb-0">Signers (one per line: <code>email|name|order</code>)</label>
+          <textarea class="form-control" name="signers" rows="4" placeholder="alice@example.com|Alice|1&#10;bob@example.com|Bob|2" required></textarea>
+          <label class="form-label mb-0">Fields JSON (optional)</label>
+          <textarea class="form-control" name="fields_json" rows="4" placeholder='[{"page":1,"field_type":"signature","x":72,"y":120,"width":170,"height":36,"required":true}]'></textarea>
+          <div class="row g-2">
+            <div class="col-6"><input class="form-control" type="number" name="expires_days" min="1" max="60" value="7"></div>
+            <div class="col-6 d-flex align-items-center gap-3">
+              <div class="form-check"><input class="form-check-input" type="checkbox" name="signer_order_enforced" checked><label class="form-check-label">Ordered signing</label></div>
+            </div>
+          </div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="send_now" checked><label class="form-check-label">Send immediately</label></div>
+          <button class="btn btn-primary" type="submit">Create request</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Request history</h2>
+        <div class="vstack gap-3">
+          {% for req in requests %}
+          <article class="border rounded p-3">
+            <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+              <div>
+                <div class="fw-medium">{{ req.title }}</div>
+                <div class="small text-muted">{{ req.created_at.strftime('%d %b %Y %H:%M') }}</div>
+              </div>
+              <span class="badge text-bg-light border">{{ req.status|title }}</span>
+            </div>
+            <div class="small text-muted mb-2">Token: <code>{{ req.access_token[:18] }}...</code></div>
+            <div class="d-flex flex-wrap gap-2">
+              {% if req.status in ['draft', 'viewed'] %}
+              <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="send">
+                <input type="hidden" name="request_id" value="{{ req.id }}">
+                <button class="btn btn-sm btn-outline-primary" type="submit">Send now</button>
+              </form>
+              {% endif %}
+              {% for signer in req.signers.all() %}
+              <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="reminder">
+                <input type="hidden" name="request_id" value="{{ req.id }}">
+                <input type="hidden" name="signer_id" value="{{ signer.id }}">
+                <button class="btn btn-sm btn-outline-secondary" type="submit">Remind {{ signer.name }}</button>
+              </form>
+              {% endfor %}
+            </div>
+          </article>
+          {% else %}
+          <div class="text-secondary">No signature requests yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

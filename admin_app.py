@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import os
-import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO, StringIO
@@ -10,15 +9,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, Response, flash, g, redirect, render_template, request, session, url_for
+from flask_migrate import upgrade
 from sqlalchemy import func, or_
 
 from app.config import BASE_DIR, config_map
 from app.extensions import db
 from app.models import (
     ActivityLog,
-    EmailOTPChallenge,
     Job,
-    PasswordResetToken,
     Payment,
     User,
     UserSubscription,
@@ -38,8 +36,6 @@ def _normalize_email(email: str) -> str:
 
 def _allowed_admin_emails() -> set[str]:
     raw = (os.environ.get("ADMIN_ALLOWED_EMAILS", "") or "").strip()
-    if not raw:
-        raw = "pdfmasterultrasuite@gmail.com"
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
 
 
@@ -124,7 +120,10 @@ def create_admin_app() -> Flask:
 
     db.init_app(app)
     with app.app_context():
-        db.create_all()
+        try:
+            upgrade()
+        except Exception:
+            app.logger.exception("Could not apply migrations on admin app startup")
 
     @app.template_filter("dt_local")
     def dt_local_filter(value):
@@ -176,7 +175,11 @@ def create_admin_app() -> Flask:
         manual_signup_ids = {
             row[0]
             for row in db.session.query(ActivityLog.user_id)
-            .filter(ActivityLog.user_id.in_(user_ids), ActivityLog.action.in_(("user.signup.otp_verified", "user.signup")))
+            .filter(
+                ActivityLog.user_id.in_(user_ids),
+                ActivityLog.action.like("user.signup%"),
+                ActivityLog.action != "user.signup.google",
+            )
             .distinct()
             .all()
             if row[0] is not None
@@ -244,27 +247,6 @@ def create_admin_app() -> Flask:
             .all()
         )
         return {row[0]: int(row[1]) for row in rows}
-
-    def otp_issue_map(emails: list[str]) -> dict[str, tuple[int, int]]:
-        if not emails:
-            return {}
-        now = utcnow()
-        pending = (
-            EmailOTPChallenge.query.filter(
-                EmailOTPChallenge.email.in_(emails),
-                EmailOTPChallenge.purpose == "login",
-                EmailOTPChallenge.used_at.is_(None),
-                EmailOTPChallenge.expires_at > now,
-            )
-            .order_by(EmailOTPChallenge.updated_at.desc())
-            .all()
-        )
-        data: dict[str, tuple[int, int]] = {}
-        for challenge in pending:
-            key = _normalize_email(challenge.email)
-            prev_attempt, prev_max = data.get(key, (0, challenge.max_attempts))
-            data[key] = (max(prev_attempt, int(challenge.attempt_count)), max(prev_max, int(challenge.max_attempts)))
-        return data
 
     def financial_overview() -> dict:
         now = utcnow()
@@ -356,11 +338,9 @@ def create_admin_app() -> Flask:
             return []
 
         user_ids = [user.id for user in users]
-        emails = [_normalize_email(user.email) for user in users]
         source_map, _ = registration_source_map(user_ids)
         subscription_map = latest_subscription_map(user_ids)
         processed_map = processed_count_map(user_ids)
-        otp_map = otp_issue_map(emails)
         issue_log_map = latest_login_issue_map(user_ids)
 
         rows = []
@@ -372,7 +352,6 @@ def create_admin_app() -> Flask:
             days_left = _days_remaining(sub.expires_at, now) if sub and sub_expires and sub_expires > now else None
             time_remaining = f"{days_left} Days left" if days_left is not None else ("Expired" if sub else "-")
             expires_soon = bool(days_left is not None and days_left < 3)
-            failed_attempts, max_attempts = otp_map.get(_normalize_email(user.email), (0, 0))
 
             if premium_filter == "premium" and not is_premium_active:
                 continue
@@ -391,8 +370,6 @@ def create_admin_app() -> Flask:
                 issue_state = "Unverified"
             elif issue_log_map.get(user.id) == "user.login.blocked.banned":
                 issue_state = "Banned"
-            elif max_attempts and failed_attempts >= max_attempts:
-                issue_state = "OTP Locked"
             else:
                 issue_state = "OK"
 
@@ -408,8 +385,6 @@ def create_admin_app() -> Flask:
                     "pdf_processed_count": processed_map.get(user.id, 0),
                     "account_status": "Active" if user.is_active else "Banned",
                     "issue_state": issue_state,
-                    "failed_attempts": failed_attempts,
-                    "max_attempts": max_attempts,
                 }
             )
         return rows
@@ -675,41 +650,9 @@ def create_admin_app() -> Flask:
             flash(f"Premium extended by {total_days} day(s) for {user.email}.", "success")
         elif action == "toggle_ban":
             user.is_active = not user.is_active
-            if not user.is_active:
-                EmailOTPChallenge.query.filter(
-                    EmailOTPChallenge.email == _normalize_email(user.email),
-                    EmailOTPChallenge.used_at.is_(None),
-                ).update({"used_at": now})
             flash(
                 f"Account {'unbanned' if user.is_active else 'banned'} for {user.email}.",
                 "warning" if not user.is_active else "success",
-            )
-        elif action == "password_reset":
-            PasswordResetToken.query.filter(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used_at.is_(None),
-            ).update({"used_at": now})
-            token = secrets.token_urlsafe(32)
-            db.session.add(
-                PasswordResetToken(
-                    user_id=user.id,
-                    token=token,
-                    expires_at=now + timedelta(minutes=30),
-                )
-            )
-            flash(f"Reset token generated for {user.email}: {token}", "info")
-        elif action == "clear_sessions":
-            otp_cleared = EmailOTPChallenge.query.filter(
-                EmailOTPChallenge.email == _normalize_email(user.email),
-                EmailOTPChallenge.used_at.is_(None),
-            ).update({"used_at": now})
-            reset_cleared = PasswordResetToken.query.filter(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used_at.is_(None),
-            ).update({"used_at": now})
-            flash(
-                f"Cleared {otp_cleared} OTP sessions and {reset_cleared} reset sessions for {user.email}.",
-                "success",
             )
         else:
             flash("Unsupported action.", "danger")

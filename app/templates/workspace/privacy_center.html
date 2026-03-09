@@ -1,0 +1,88 @@
+﻿{% extends 'base.html' %}
+{% block title %}Privacy Center | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Privacy controls</span>
+  <h1 class="h3 mb-2">Privacy control center</h1>
+  <p class="text-secondary mb-0">Configure retention, private mode, history controls, and cleanup actions.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Settings</h2>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="update">
+          <label class="form-label">Auto-delete hours</label>
+          <input class="form-control" type="number" name="auto_delete_hours" min="1" max="720" value="{{ settings.auto_delete_hours }}">
+          <label class="form-check"><input class="form-check-input" type="checkbox" name="private_mode_enabled" {{ 'checked' if settings.private_mode_enabled else '' }}> Private mode (one-time processing intent)</label>
+          <label class="form-check"><input class="form-check-input" type="checkbox" name="allow_share_links" {{ 'checked' if settings.allow_share_links else '' }}> Allow share links</label>
+          <label class="form-check"><input class="form-check-input" type="checkbox" name="keep_download_history" {{ 'checked' if settings.keep_download_history else '' }}> Keep access/download history</label>
+          <button class="btn btn-primary" type="submit">Save settings</button>
+        </form>
+
+        <hr>
+        <div class="d-grid gap-2">
+          <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="apply_auto_cleanup">
+            <button class="btn btn-outline-secondary" type="submit">Run auto-delete now</button>
+          </form>
+          <form method="post" onsubmit="return confirm('Delete all your stored files? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete_all">
+            <button class="btn btn-outline-danger" type="submit">Delete all my files</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">File access logs</h2>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Time</th><th>Action</th><th>File ID</th><th>IP</th></tr></thead>
+            <tbody>
+              {% for row in file_logs[:80] %}
+              <tr>
+                <td>{{ row.created_at.strftime('%d %b %H:%M:%S') }}</td>
+                <td>{{ row.action }}</td>
+                <td>{{ row.file_id }}</td>
+                <td>{{ row.ip_address or '-' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-secondary">No file access logs yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Share-link access logs</h2>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Time</th><th>Event</th><th>Status</th><th>IP</th></tr></thead>
+            <tbody>
+              {% for row in share_logs[:80] %}
+              <tr>
+                <td>{{ row.created_at.strftime('%d %b %H:%M:%S') }}</td>
+                <td>{{ row.event }}</td>
+                <td>{{ row.status }}</td>
+                <td>{{ row.ip_address or '-' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-secondary">No share-link logs yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

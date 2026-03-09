@@ -1,0 +1,62 @@
+﻿{% extends 'base.html' %}
+{% block title %}Form Builder: {{ template.name }} | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4 d-flex justify-content-between align-items-start gap-2 flex-wrap">
+  <div>
+    <span class="eyebrow">Form builder</span>
+    <h1 class="h3 mb-1">{{ template.name }}</h1>
+    <p class="text-secondary mb-0">Update fields and share form link.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('workspace.forms') }}">Back</a>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Share link</h2>
+    <div class="input-group">
+      <input class="form-control" value="{{ url_for('workspace.form_fill', token=template.share_token, _external=True) }}" readonly>
+      <a class="btn btn-outline-primary" target="_blank" href="{{ url_for('workspace.form_fill', token=template.share_token) }}">Open</a>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Update template</h2>
+    <form method="post" class="vstack gap-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input class="form-control" type="text" name="name" value="{{ template.name }}" required>
+      <textarea class="form-control" name="description" rows="2">{{ template.description }}</textarea>
+      <label class="form-label mb-0">Fields JSON</label>
+      <textarea class="form-control" name="fields_json" rows="10">[
+{% for field in fields %}  {"page": {{ field.page }}, "field_type": "{{ field.field_type }}", "name": "{{ field.name }}", "label": "{{ field.label }}", "placeholder": "{{ field.placeholder }}", "x": {{ field.x }}, "y": {{ field.y }}, "width": {{ field.width }}, "height": {{ field.height }}, "required": {{ 'true' if field.required else 'false' }}, "options": {{ field.options_json|tojson }}}{% if not loop.last %},{% endif %}
+{% endfor %}]</textarea>
+      <button class="btn btn-primary" type="submit">Save template</button>
+    </form>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Current fields</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Page</th><th>Type</th><th>Name</th><th>Label</th><th>Position</th></tr></thead>
+        <tbody>
+          {% for field in fields %}
+          <tr>
+            <td>{{ field.page }}</td>
+            <td>{{ field.field_type }}</td>
+            <td>{{ field.name }}</td>
+            <td>{{ field.label }}</td>
+            <td class="small text-muted">x={{ field.x }}, y={{ field.y }}, w={{ field.width }}, h={{ field.height }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-secondary">No fields configured.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

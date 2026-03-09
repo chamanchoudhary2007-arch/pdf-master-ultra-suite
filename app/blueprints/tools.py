@@ -21,6 +21,7 @@ from app.services import (
     OCRService,
     PDFService,
     PricingService,
+    PrivacyService,
     ScannerService,
     ShareService,
     SignatureService,
@@ -241,6 +242,8 @@ def tool_detail(tool_key: str):
 @login_required
 def create_share_link():
     try:
+        if not PrivacyService.should_allow_share_links(current_user.id):
+            raise ValueError("Share links are disabled in your privacy settings.")
         file_id = _parse_int(
             request.form.get("file_id"),
             field_name="file",
@@ -390,6 +393,12 @@ def run_tool(tool_key: str):
         if isinstance(result, Response):
             return result
         job = result
+        current_app.logger.info(
+            "Job queued successfully. user_id=%s tool_key=%s job_id=%s",
+            current_user.id,
+            tool_key,
+            getattr(job, "id", None),
+        )
         flash(f"Request queued for {tool.name}. Refresh the dashboard to track progress.", "success")
     return redirect(url_for("tools.tool_detail", tool_key=tool_key))
 

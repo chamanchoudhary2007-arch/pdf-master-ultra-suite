@@ -1,0 +1,32 @@
+.hero-shell,
+.dashboard-hero-panel,
+.workspace-plan-panel,
+.dashboard-panel,
+.auth-showcase-panel,
+.premium-auth-card,
+.all-tools-hero,
+.tool-hero,
+.pricing-strip,
+.metric-surface,
+.feature-card {
+  border: 1px solid var(--app-border);
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+.section-link,
+.section-counter {
+  font-size: 0.86rem;
+}

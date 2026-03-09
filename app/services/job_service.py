@@ -121,6 +121,21 @@ class JobService:
                     result_json=result.get("result_json", {}),
                     error_message="",
                 )
+                try:
+                    from app.services.api_automation_service import APIAutomationService
+
+                    APIAutomationService.dispatch_user_event(
+                        user_id=worker_user.id,
+                        event_name="job.completed",
+                        payload={
+                            "job_id": job_id,
+                            "tool_key": job.tool_key,
+                            "status": "completed",
+                            "output_file_id": result.get("output_file_id"),
+                        },
+                    )
+                except Exception:
+                    current_app.logger.exception("Webhook dispatch failed for completed job")
             except Exception as exc:
                 job = db.session.get(Job, job_id)
                 user = db.session.get(User, job.user_id) if job else None
@@ -137,3 +152,19 @@ class JobService:
                     progress=100,
                     error_message=str(exc),
                 )
+                try:
+                    if user:
+                        from app.services.api_automation_service import APIAutomationService
+
+                        APIAutomationService.dispatch_user_event(
+                            user_id=user.id,
+                            event_name="job.failed",
+                            payload={
+                                "job_id": job_id,
+                                "tool_key": job.tool_key if job else "",
+                                "status": "failed",
+                                "error": str(exc),
+                            },
+                        )
+                except Exception:
+                    current_app.logger.exception("Webhook dispatch failed for failed job")

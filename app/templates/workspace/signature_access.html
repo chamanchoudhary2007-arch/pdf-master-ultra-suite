@@ -1,0 +1,56 @@
+﻿{% extends 'base.html' %}
+{% block title %}Signature Access | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Signer portal</span>
+  <h1 class="h3 mb-2">Complete signature request</h1>
+  <p class="text-secondary mb-0">Verify signer email + code, review fields, then submit signature data.</p>
+</section>
+
+<div class="row g-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Verification</h2>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="verify">
+          <input class="form-control" type="email" name="email" value="{{ email }}" placeholder="Signer email" required>
+          <input class="form-control" type="text" name="code" value="{{ code }}" placeholder="6-digit verification code" required>
+          <button class="btn btn-primary" type="submit">Verify</button>
+        </form>
+        {% if access_error %}<div class="alert alert-danger mt-3 mb-0">{{ access_error }}</div>{% endif %}
+        {% if success_message %}<div class="alert alert-success mt-3 mb-0">{{ success_message }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        {% if active_request and signer %}
+        <h2 class="h5 mb-2">{{ active_request.title }}</h2>
+        <p class="small text-muted">Signer: {{ signer.name }} (Order {{ signer.signer_order }}) • Status: {{ signer.status|title }}</p>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="sign">
+          <input type="hidden" name="email" value="{{ email }}">
+          <input type="hidden" name="code" value="{{ code }}">
+          {% for field in signer_fields %}
+          <div>
+            <label class="form-label">{{ field.label }} ({{ field.field_type }}, page {{ field.page }})</label>
+            <input class="form-control" type="text" name="field_{{ field.id }}" value="{{ field.value }}" {% if field.required %}required{% endif %}>
+          </div>
+          {% else %}
+          <div class="text-secondary">No signer-specific fields configured. Submit to complete your signing step.</div>
+          {% endfor %}
+          <button class="btn btn-success" type="submit">Submit signature</button>
+        </form>
+        {% else %}
+        <div class="text-secondary">Verify your signer details to open request fields.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

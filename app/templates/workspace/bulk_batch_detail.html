@@ -1,0 +1,47 @@
+﻿{% extends 'base.html' %}
+{% block title %}Bulk Batch #{{ batch.id }} | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+  <div>
+    <span class="eyebrow">Batch detail</span>
+    <h1 class="h3 mb-1">{{ batch.name }}</h1>
+    <p class="text-secondary mb-0">Status: {{ batch.status|title }} • {{ batch.processed_files }} processed / {{ batch.failed_files }} failed</p>
+  </div>
+  <div class="d-flex gap-2">
+    {% if batch.output_archive_file_id %}
+    <a class="btn btn-primary" href="{{ url_for('workspace.bulk_batch_download', batch_id=batch.id) }}">Download all</a>
+    {% endif %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('workspace.bulk_processing') }}">Back</a>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Per-file status</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>#</th><th>Input</th><th>Status</th><th>Message</th><th>Output</th></tr></thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.sequence_index }}</td>
+            <td>{{ item.input_file.original_name if item.input_file else 'Missing' }}</td>
+            <td><span class="badge text-bg-light border">{{ item.status|title }}</span></td>
+            <td class="small text-muted">{{ item.error_message or item.log_message }}</td>
+            <td>
+              {% if item.output_file_id %}
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.download_file', file_id=item.output_file_id) }}">Download</a>
+              {% else %}
+              <span class="text-muted small">Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-secondary">No items in this batch.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -2,12 +2,8 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
-
 from app import create_app
 from app.dependency_check import assert_runtime_dependencies
-
-load_dotenv()
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -18,8 +14,11 @@ def _env_flag(name: str, default: bool) -> bool:
 
 
 config_name = os.environ.get("APP_CONFIG", "default")
-assert_runtime_dependencies()
-app = create_app(config_name)
+try:
+    assert_runtime_dependencies()
+    app = create_app(config_name)
+except Exception as exc:
+    raise RuntimeError(f"Application startup failed: {exc}") from exc
 
 
 if __name__ == "__main__":
@@ -28,3 +27,5 @@ if __name__ == "__main__":
     debug_default = config_name == "development"
     debug = _env_flag("FLASK_DEBUG", debug_default)
     app.run(host=host, port=port, debug=debug)
+
+ 

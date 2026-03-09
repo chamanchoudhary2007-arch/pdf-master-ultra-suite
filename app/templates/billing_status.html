@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}Billing Status | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="py-4">
+<section
+  class="py-4"
+  data-billing-state="{{ state }}"
+  data-billing-order-id="{{ order_id }}"
+  data-billing-poll-url="{{ status_poll_url if status_poll_url else '' }}"
+>
   <div class="row justify-content-center">
     <div class="col-lg-8">
       <div class="card border-0 shadow-sm">
@@ -9,6 +14,8 @@
           <div class="d-flex align-items-start gap-3 mb-3">
             {% if state == 'success' %}
             <span class="badge text-bg-success fs-6"><i class="bi bi-check2-circle me-1"></i>Payment successful</span>
+            {% elif state == 'pending' %}
+            <span class="badge text-bg-warning fs-6"><i class="bi bi-hourglass-split me-1"></i>Payment verification in progress</span>
             {% else %}
             <span class="badge text-bg-danger fs-6"><i class="bi bi-exclamation-triangle me-1"></i>Payment failed</span>
             {% endif %}
@@ -16,11 +23,20 @@
           <h1 class="h3 mb-2">
             {% if state == 'success' %}
             Premium billing completed
+            {% elif state == 'pending' %}
+            Verifying payment status
             {% else %}
             Payment could not be completed
             {% endif %}
           </h1>
-          <p class="text-secondary mb-4">{{ message }}</p>
+          <p class="text-secondary mb-4" data-billing-message>{{ message }}</p>
+
+          {% if state == 'pending' %}
+          <div class="alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mb-4" role="status" aria-live="polite">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            <span>Do not close this page. We are checking payment confirmation from Razorpay.</span>
+          </div>
+          {% endif %}
 
           {% if plan %}
           <div class="metric-inline mb-3">
@@ -45,6 +61,7 @@
             <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Back to dashboard</a>
             <a class="btn btn-outline-secondary" href="{{ billing_settings_url }}">Open settings</a>
             {% if state != 'success' %}
+            <a class="btn btn-outline-secondary" href="{{ request.full_path if request.query_string else request.path }}">Refresh status</a>
             <a class="btn btn-outline-secondary" href="{{ billing_settings_url }}">Try again</a>
             {% endif %}
           </div>
@@ -53,4 +70,56 @@
     </div>
   </div>
 </section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+  const section = document.querySelector("[data-billing-state]");
+  if (!section) return;
+  const state = (section.getAttribute("data-billing-state") || "").trim().toLowerCase();
+  const pollUrl = (section.getAttribute("data-billing-poll-url") || "").trim();
+  const messageNode = section.querySelector("[data-billing-message]");
+  if (state !== "pending" || !pollUrl) return;
+
+  let attempts = 0;
+  const maxAttempts = 180; // 3 minutes at 1s interval
+
+  const tick = async () => {
+    attempts += 1;
+    try {
+      const response = await fetch(pollUrl, {
+        method: "GET",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload && (payload.state === "success" || payload.state === "failed")) {
+          if (payload.redirect_url) {
+            window.location.assign(payload.redirect_url);
+            return;
+          }
+          window.location.reload();
+          return;
+        }
+        if (payload && payload.message && messageNode) {
+          messageNode.textContent = payload.message;
+        }
+      }
+    } catch (error) {
+      // Keep polling; transient network failures are expected.
+    }
+    if (attempts >= maxAttempts) {
+      if (messageNode) {
+        messageNode.textContent = "Still verifying payment. Please click Refresh status in a few seconds.";
+      }
+      return;
+    }
+    window.setTimeout(tick, 1000);
+  };
+
+  window.setTimeout(tick, 300);
+})();
+</script>
 {% endblock %}

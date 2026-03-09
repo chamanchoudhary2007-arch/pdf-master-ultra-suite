@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
@@ -20,34 +21,91 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from itsdangerous import BadSignature, URLSafeSerializer
+from markupsafe import Markup, escape
 from werkzeug.exceptions import HTTPException
 
-from app.extensions import csrf, db
-from app.models import Job, ManagedFile, ToolCatalog, User
+from app.extensions import csrf, db, limiter
+from app.models import Job, ManagedFile, Payment, ToolCatalog, User
 from app.services import (
     AnalyticsService,
     AuthService,
     CatalogService,
     PaymentGatewayService,
+    PrivacyService,
     PricingService,
     ShareService,
     StorageService,
     SubscriptionService,
 )
+from app.services.url_service import UrlService
 
 main_bp = Blueprint("main", __name__)
+
+_BILLING_PAYMENT_LINK_SALT = "billing-payment-link-v1"
+_BILLING_PAYMENT_LINK_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+
+
+def _build_callback_url() -> str:
+    callback_url = current_app.config.get("RAZORPAY_CALLBACK_URL") or url_for(
+        "main.razorpay_callback",
+        _external=True,
+    )
+    if callback_url and not callback_url.lower().startswith("http"):
+        callback_url = f"{request.url_root.rstrip('/')}/{callback_url.lstrip('/')}"
+    return callback_url
+
+
+def _payment_link_serializer() -> URLSafeSerializer:
+    secret_key = (current_app.config.get("SECRET_KEY") or "").strip()
+    if not secret_key:
+        raise ValueError("SECRET_KEY is required for payment links.")
+    return URLSafeSerializer(secret_key, salt=_BILLING_PAYMENT_LINK_SALT)
+
+
+def _encode_payment_link_token(order_id: str, user_id: int) -> str:
+    payload = {
+        "order_id": (order_id or "").strip(),
+        "user_id": int(user_id),
+        "issued_at": int(datetime.utcnow().timestamp()),
+    }
+    return _payment_link_serializer().dumps(payload)
+
+
+def _decode_payment_link_token(token: str) -> dict | None:
+    try:
+        payload = _payment_link_serializer().loads((token or "").strip())
+    except BadSignature:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    order_id = (payload.get("order_id") or "").strip()
+    try:
+        user_id = int(payload.get("user_id") or 0)
+        issued_at = int(payload.get("issued_at") or 0)
+    except (TypeError, ValueError):
+        return None
+    if not order_id or user_id <= 0 or issued_at <= 0:
+        return None
+    age_seconds = int(datetime.utcnow().timestamp()) - issued_at
+    if age_seconds < 0 or age_seconds > _BILLING_PAYMENT_LINK_MAX_AGE_SECONDS:
+        return None
+    return {
+        "order_id": order_id,
+        "user_id": user_id,
+        "issued_at": issued_at,
+    }
+
+
 @main_bp.route("/google-login")
 def google_login_entry():
-    from app.blueprints.auth import google_login
-
-    return google_login()
+    return redirect(url_for("auth.google_login", **request.args), code=302)
 
 
 @main_bp.route("/google-auth")
+@main_bp.route("/google-callback")
 def google_auth_callback():
-    from app.blueprints.auth import google_auth
-
-    return google_auth()
+    return redirect(url_for("auth.google_auth", **request.args), code=302)
 
 MAIN_TOOL_HUB_DEFINITIONS = [
     {
@@ -224,6 +282,68 @@ def landing():
         featured_tools=featured_tools,
         summary=summary,
         main_tool_hubs=main_tool_hubs,
+        payment_mode=(current_app.config.get("PAYMENT_MODE") or "demo").strip().lower(),
+    )
+
+
+@main_bp.route("/robots.txt")
+def robots_txt():
+    content = "\n".join(
+        [
+            "User-agent: *",
+            "Allow: /",
+            "Disallow: /admin/",
+            "Disallow: /dashboard",
+            "Disallow: /tools/",
+            "Disallow: /workspace/",
+            f"Sitemap: {UrlService.build_external_url('main.sitemap_xml')}",
+        ]
+    )
+    return Response(content, mimetype="text/plain")
+
+
+@main_bp.route("/manifest.webmanifest")
+def web_manifest():
+    return send_file(
+        Path(current_app.static_folder) / "manifest.webmanifest",
+        mimetype="application/manifest+json",
+        max_age=3600,
+    )
+
+
+@main_bp.route("/service-worker.js")
+def service_worker():
+    response = send_file(
+        Path(current_app.static_folder) / "service-worker.js",
+        mimetype="application/javascript",
+        max_age=300,
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+
+@main_bp.route("/sitemap.xml")
+def sitemap_xml():
+    pages = [
+        {
+            "loc": UrlService.build_external_url("main.landing"),
+            "changefreq": "daily",
+            "priority": "1.0",
+        },
+        {
+            "loc": UrlService.build_external_url("auth.login"),
+            "changefreq": "monthly",
+            "priority": "0.7",
+        },
+        {
+            "loc": UrlService.build_external_url("auth.signup"),
+            "changefreq": "monthly",
+            "priority": "0.8",
+        },
+    ]
+    return Response(
+        render_template("sitemap.xml", pages=pages),
+        mimetype="application/xml",
     )
 
 
@@ -385,6 +505,32 @@ def settings():
         if custom_min_days <= day <= custom_max_days
     ]
     recent_transactions = SubscriptionService.list_user_transactions(current_user.id, limit=8)
+    generated_reset_key = AuthService.ensure_password_reset_key(current_user)
+    if generated_reset_key:
+        flash(
+            Markup(
+                "Your new 4-digit Password Reset Key is "
+                f"<strong>{escape(generated_reset_key)}</strong>. "
+                "Save it safely in your personal notes."
+            ),
+            "warning",
+        )
+    password_reset_help_email = (
+        current_app.config.get("PASSWORD_RESET_HELP_EMAIL")
+        or current_app.config.get("ADMIN_EMAIL")
+        or "pdfmasterultrasuite@gmail.com"
+    ).strip()
+    password_reset_help_link = UrlService.gmail_compose_url(
+        to_email=password_reset_help_email,
+        subject=f"{current_app.config['APP_NAME']} - Help to forget key",
+        body=(
+            "Hello Admin,\n\n"
+            "I forgot my 4-digit password reset key. Please help me regain access.\n"
+            f"Account email: {current_user.email}\n"
+            "Reason: \n\n"
+            "Thanks."
+        ),
+    )
 
     return render_template(
         "settings.html",
@@ -407,6 +553,10 @@ def settings():
         custom_min_days=custom_min_days,
         custom_max_days=custom_max_days,
         custom_quick_chips=custom_quick_chips,
+        payment_mode=(current_app.config.get("PAYMENT_MODE") or "demo").strip().lower(),
+        password_reset_icon_choices=AuthService.password_reset_icon_choices(),
+        password_reset_help_email=password_reset_help_email,
+        password_reset_help_link=password_reset_help_link,
     )
 
 
@@ -439,10 +589,11 @@ def billing_transactions():
 @main_bp.route("/settings/profile-photo", methods=["POST"])
 @login_required
 def update_profile_photo():
+    redirect_target = url_for("main.settings", tab="profile", _anchor="profile-settings")
     upload = request.files.get("profile_photo")
     if not upload or not upload.filename:
         flash("Please select an image for profile photo.", "danger")
-        return redirect(url_for("main.settings"))
+        return redirect(redirect_target)
     try:
         previous_photos = (
             ManagedFile.query.filter_by(
@@ -470,7 +621,53 @@ def update_profile_photo():
         flash("Profile photo updated.", "success")
     except Exception as exc:
         flash(str(exc), "danger")
-    return redirect(url_for("main.settings"))
+    return redirect(redirect_target)
+
+
+@main_bp.route("/settings/password-reset-key", methods=["POST"])
+@login_required
+def update_password_reset_key():
+    action = (request.form.get("action") or "set").strip().lower()
+    selected_icon = (request.form.get("reset_key_icon") or "").strip()
+    redirect_target = url_for("main.settings", tab="security", _anchor="profile-security")
+    try:
+        if action == "generate":
+            new_key = AuthService.generate_password_reset_key()
+            AuthService.set_password_reset_key(
+                current_user,
+                new_key,
+                icon_name=selected_icon,
+            )
+            flash(
+                Markup(
+                    "New 4-digit Password Reset Key generated: "
+                    f"<strong>{escape(new_key)}</strong>. Save it now."
+                ),
+                "success",
+            )
+            return redirect(redirect_target)
+
+        if action == "icon":
+            if not AuthService.is_valid_password_reset_icon(selected_icon):
+                raise ValueError("Please select a valid reset key icon.")
+            current_user.password_reset_key_icon = selected_icon
+            db.session.commit()
+            flash("Password Reset Key icon updated.", "success")
+            return redirect(redirect_target)
+
+        reset_key = (request.form.get("reset_key") or "").strip()
+        confirm_reset_key = (request.form.get("confirm_reset_key") or "").strip()
+        if reset_key != confirm_reset_key:
+            raise ValueError("Reset key and confirm key do not match.")
+        AuthService.set_password_reset_key(
+            current_user,
+            reset_key,
+            icon_name=selected_icon,
+        )
+        flash("Password Reset Key updated successfully.", "success")
+    except Exception as exc:
+        flash(str(exc), "danger")
+    return redirect(redirect_target)
 
 
 @main_bp.route("/all-tools")
@@ -718,6 +915,12 @@ def all_tools():
 @login_required
 def wallet_top_up():
     redirect_target = request.referrer or url_for("main.settings")
+    if PaymentGatewayService.is_live_mode():
+        flash(
+            "Wallet top-up via mock mode is disabled in live payment mode.",
+            "warning",
+        )
+        return redirect(redirect_target)
     amount_raw = request.form.get("amount_rupees", "500").strip()
     try:
         amount_rupees = int(amount_raw)
@@ -734,12 +937,13 @@ def wallet_top_up():
     except Exception as exc:
         flash(str(exc), "danger")
     else:
-        flash("Wallet balance updated using the mock gateway.", "success")
+        flash("Wallet balance updated in demo payment mode.", "success")
     return redirect(redirect_target)
 
 
 @main_bp.route("/billing/subscribe", methods=["POST"])
 @login_required
+@limiter.limit("12 per minute", methods=["POST"])
 def subscribe():
     plan_key = (request.form.get("plan_key", "") or "").strip()
     custom_days = (request.form.get("custom_days", "") or "").strip() or None
@@ -747,12 +951,7 @@ def subscribe():
         return jsonify({"error": "Plan key is required."}), 400
     try:
         plan = SubscriptionService.resolve_plan_purchase(plan_key, custom_days=custom_days)
-        callback_url = current_app.config.get("RAZORPAY_CALLBACK_URL") or url_for(
-            "main.razorpay_callback",
-            _external=True,
-        )
-        if callback_url and not callback_url.lower().startswith("http"):
-            callback_url = f"{request.url_root.rstrip('/')}/{callback_url.lstrip('/')}"
+        callback_url = _build_callback_url()
         order = PaymentGatewayService.create_subscription_order(
             current_user,
             plan["plan_key"],
@@ -760,8 +959,39 @@ def subscribe():
         )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
+
+    if PaymentGatewayService.is_demo_mode():
+        return jsonify(
+            {
+                "mode": "demo",
+                "message": "Demo payment mode is enabled. No real charge will be made.",
+                "order_id": order["id"],
+                "amount": int(order.get("amount") or plan["price_paise"]),
+                "currency": order.get("currency") or current_app.config["RAZORPAY_CURRENCY"],
+                "plan_name": plan["name"],
+                "plan_key": plan["plan_key"],
+                "duration_days": int(plan["duration_days"]),
+                "demo_success_url": url_for(
+                    "main.demo_payment_complete",
+                    order_id=order["id"],
+                    state="success",
+                ),
+                "demo_failure_url": url_for(
+                    "main.demo_payment_complete",
+                    order_id=order["id"],
+                    state="failed",
+                ),
+            }
+        )
+    payment_link_token = _encode_payment_link_token(order["id"], current_user.id)
+    payment_link_url = url_for(
+        "main.billing_pay_link",
+        token=payment_link_token,
+        _external=True,
+    )
     return jsonify(
         {
+            "mode": "live",
             "key_id": current_app.config["RAZORPAY_KEY_ID"],
             "order_id": order["id"],
             "amount": int(order.get("amount") or plan["price_paise"]),
@@ -774,13 +1004,69 @@ def subscribe():
                 "name": current_user.full_name,
                 "email": current_user.email,
             },
+            "confirm_url": url_for("main.razorpay_confirm"),
+            "status_poll_url": url_for("main.razorpay_order_status", order_id=order["id"]),
+            "client_failure_url": url_for("main.razorpay_client_failure"),
             "status_url_on_dismiss": url_for(
                 "main.billing_status",
-                state="failed",
-                message="Payment was cancelled.",
+                state="pending",
+                message="Payment verification is in progress. Please wait a moment.",
+                order_id=order["id"],
             ),
+            "payment_link_url": payment_link_url,
             "app_name": current_app.config["APP_NAME"],
         }
+    )
+
+
+@main_bp.route("/billing/demo/<order_id>/complete")
+@login_required
+def demo_payment_complete(order_id: str):
+    if PaymentGatewayService.is_live_mode():
+        abort(404)
+    state = (request.args.get("state", "success") or "success").strip().lower()
+    if state not in {"success", "failed"}:
+        state = "failed"
+
+    if state == "failed":
+        PaymentGatewayService.mark_payment_failed(
+            order_id,
+            error_message="Demo payment marked as failed by user.",
+        )
+        return redirect(
+            url_for(
+                "main.billing_status",
+                state="failed",
+                message="Demo payment was cancelled.",
+                order_id=order_id,
+            )
+        )
+
+    try:
+        subscription = PaymentGatewayService.confirm_demo_payment(current_user, order_id)
+    except Exception as exc:
+        PaymentGatewayService.mark_payment_failed(
+            order_id,
+            error_message=str(exc),
+        )
+        return redirect(
+            url_for(
+                "main.billing_status",
+                state="failed",
+                message=str(exc),
+                order_id=order_id,
+            )
+        )
+
+    return redirect(
+        url_for(
+            "main.billing_status",
+            state="success",
+            plan=subscription.plan_name,
+            message="Demo payment completed successfully.",
+            order_id=order_id,
+            payment_id="demo",
+        )
     )
 
 
@@ -790,14 +1076,18 @@ def razorpay_callback():
     payment_id = (request.form.get("razorpay_payment_id", "") or "").strip()
     order_id = (request.form.get("razorpay_order_id", "") or "").strip()
     signature = (request.form.get("razorpay_signature", "") or "").strip()
+    signature_verified = False
     try:
         if not payment_id or not order_id or not signature:
             raise ValueError("Incomplete payment response.")
         PaymentGatewayService.verify_signature(order_id, payment_id, signature)
+        signature_verified = True
         order = PaymentGatewayService.fetch_order(order_id)
+        payment_row = PaymentGatewayService.payment_row_for_order(order_id=order_id)
+        PaymentGatewayService.validate_order_vs_payment_row(order, payment_row)
         notes = order.get("notes") or {}
-        user_id = int(notes.get("user_id", "0") or 0)
-        plan_key = (notes.get("plan_key") or "").strip()
+        user_id = int(notes.get("user_id", "0") or (payment_row.user_id if payment_row else 0) or 0)
+        plan_key = (notes.get("plan_key") or (payment_row.plan_key if payment_row else "") or "").strip()
         custom_days = (notes.get("custom_days") or "").strip() or None
         user = db.session.get(User, user_id)
         if not user:
@@ -826,19 +1116,40 @@ def razorpay_callback():
             },
         )
     except Exception as exc:
-        try:
-            PaymentGatewayService.mark_payment_failed(
-                order_id,
-                payment_id=payment_id,
-                error_message=str(exc),
+        error_text = str(exc)
+        normalized_error = error_text.lower()
+        hard_fail_markers = (
+            "signature",
+            "incomplete payment response",
+            "order amount mismatch",
+            "order currency mismatch",
+            "user not found for this payment",
+        )
+        should_mark_failed = (not signature_verified) or any(marker in normalized_error for marker in hard_fail_markers)
+        if signature_verified and not should_mark_failed:
+            return redirect(
+                url_for(
+                    "main.billing_status",
+                    state="pending",
+                    message="Payment received. Verification is in progress.",
+                    order_id=order_id,
+                    payment_id=payment_id,
+                )
             )
+        try:
+            if should_mark_failed:
+                PaymentGatewayService.mark_payment_failed(
+                    order_id,
+                    payment_id=payment_id,
+                    error_message=error_text,
+                )
         except Exception:
             current_app.logger.exception("Failed to persist payment failure state")
         return redirect(
             url_for(
                 "main.billing_status",
                 state="failed",
-                message=str(exc),
+                message=error_text,
                 order_id=order_id,
                 payment_id=payment_id,
             )
@@ -854,25 +1165,603 @@ def razorpay_callback():
     )
 
 
+@main_bp.route("/billing/razorpay/confirm", methods=["POST"])
+@login_required
+@limiter.limit("20 per minute", methods=["POST"])
+def razorpay_confirm():
+    payment_id = (request.form.get("razorpay_payment_id", "") or "").strip()
+    order_id = (request.form.get("razorpay_order_id", "") or "").strip()
+    signature = (request.form.get("razorpay_signature", "") or "").strip()
+
+    try:
+        if not payment_id or not order_id or not signature:
+            raise ValueError("Incomplete payment response.")
+        PaymentGatewayService.verify_signature(order_id, payment_id, signature)
+        payment_row = PaymentGatewayService.payment_row_for_order(
+            order_id=order_id,
+            user_id=current_user.id,
+        )
+        if not payment_row:
+            raise ValueError("Order not found for this account.")
+        order = PaymentGatewayService.fetch_order(order_id)
+        PaymentGatewayService.validate_order_vs_payment_row(
+            order,
+            payment_row,
+            expected_user_id=current_user.id,
+        )
+        notes = order.get("notes") or {}
+        order_user_id = int(notes.get("user_id", "0") or current_user.id)
+        if order_user_id != current_user.id:
+            raise ValueError("Order does not belong to current user.")
+
+        plan_key = (notes.get("plan_key") or payment_row.plan_key or "").strip()
+        custom_days = (notes.get("custom_days") or "").strip() or None
+        if (
+            not custom_days
+            and plan_key == "pro_custom"
+        ):
+            if payment_row and int(payment_row.duration_days or 0) > 0:
+                custom_days = str(int(payment_row.duration_days))
+        plan = SubscriptionService.resolve_plan_purchase(plan_key, custom_days=custom_days)
+        if int(order.get("amount") or 0) != int(plan["price_paise"]):
+            raise ValueError("Order amount mismatch.")
+        if (order.get("currency") or "").strip().upper() != current_app.config["RAZORPAY_CURRENCY"].upper():
+            raise ValueError("Order currency mismatch.")
+
+        subscription = SubscriptionService.activate_after_gateway_payment(
+            user=current_user,
+            plan_key=plan["plan_key"],
+            payment_id=payment_id,
+            order_id=order_id,
+            custom_days=plan.get("custom_days"),
+            gateway_payload={
+                "order": order,
+                "callback_fields": {
+                    "razorpay_payment_id": payment_id,
+                    "razorpay_order_id": order_id,
+                    "razorpay_signature": signature,
+                },
+            },
+        )
+        return jsonify(
+            {
+                "state": "success",
+                "message": "Your premium plan has been activated successfully.",
+                "redirect_url": url_for(
+                    "main.billing_status",
+                    state="success",
+                    plan=subscription.plan_name,
+                    order_id=order_id,
+                    payment_id=payment_id,
+                ),
+            }
+        )
+    except Exception as exc:
+        current_app.logger.exception("Razorpay instant confirm failed. order_id=%s", order_id)
+        existing_success = Payment.query.filter_by(
+            user_id=current_user.id,
+            razorpay_order_id=order_id,
+            status="success",
+        ).first()
+        if existing_success:
+            return jsonify(
+                {
+                    "state": "success",
+                    "message": "Your premium plan has been activated successfully.",
+                    "redirect_url": url_for(
+                        "main.billing_status",
+                        state="success",
+                        plan=existing_success.plan_name,
+                        order_id=order_id,
+                        payment_id=existing_success.razorpay_payment_id or payment_id,
+                    ),
+                }
+            )
+
+        error_text = str(exc)
+        normalized_error = error_text.lower()
+        hard_fail_markers = (
+            "signature",
+            "incomplete payment response",
+            "order amount mismatch",
+            "order currency mismatch",
+            "does not belong",
+        )
+        should_fail = any(marker in normalized_error for marker in hard_fail_markers)
+        if should_fail:
+            try:
+                PaymentGatewayService.mark_payment_failed(
+                    order_id,
+                    payment_id=payment_id,
+                    error_message=error_text,
+                )
+            except Exception:
+                current_app.logger.exception("Failed to persist instant-confirm failure")
+            return jsonify(
+                {
+                    "state": "failed",
+                    "message": error_text,
+                    "redirect_url": url_for(
+                        "main.billing_status",
+                        state="failed",
+                        message=error_text,
+                        order_id=order_id,
+                        payment_id=payment_id,
+                    ),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "state": "pending",
+                "message": "Payment received. Verification is in progress.",
+                "redirect_url": url_for(
+                    "main.billing_status",
+                    state="pending",
+                    message="Payment received. Verification is in progress.",
+                    order_id=order_id,
+                    payment_id=payment_id,
+                ),
+            }
+        ), 202
+
+
+@main_bp.route("/billing/razorpay/client-failure", methods=["POST"])
+@login_required
+@limiter.limit("30 per minute", methods=["POST"])
+def razorpay_client_failure():
+    order_id = (
+        request.form.get("razorpay_order_id")
+        or request.form.get("order_id")
+        or ""
+    ).strip()
+    payment_id = (
+        request.form.get("razorpay_payment_id")
+        or request.form.get("payment_id")
+        or ""
+    ).strip()
+    error_message = (
+        request.form.get("error_message")
+        or request.form.get("message")
+        or "Payment could not be completed."
+    ).strip()
+
+    if not order_id:
+        return jsonify({"state": "failed", "message": "Missing order id."}), 400
+
+    payment_row = Payment.query.filter_by(
+        user_id=current_user.id,
+        razorpay_order_id=order_id,
+    ).first()
+    if not payment_row:
+        return jsonify({"state": "failed", "message": "Order not found for this account."}), 404
+
+    if (payment_row.status or "").strip().lower() == "success":
+        return jsonify(
+            {
+                "state": "success",
+                "message": "Your premium plan has been activated successfully.",
+                "redirect_url": url_for(
+                    "main.billing_status",
+                    state="success",
+                    plan=payment_row.plan_name,
+                    order_id=order_id,
+                    payment_id=payment_row.razorpay_payment_id or payment_id,
+                ),
+            }
+        )
+
+    if (payment_row.status or "").strip().lower() != "failed":
+        try:
+            PaymentGatewayService.mark_payment_failed(
+                order_id,
+                payment_id=payment_id,
+                error_message=error_message,
+            )
+        except Exception:
+            current_app.logger.exception("Failed to persist client-side payment failure. order_id=%s", order_id)
+
+    return jsonify(
+        {
+            "state": "failed",
+            "message": error_message,
+            "redirect_url": url_for(
+                "main.billing_status",
+                state="failed",
+                message=error_message,
+                order_id=order_id,
+                payment_id=payment_id,
+            ),
+        }
+    )
+
+
+@main_bp.route("/billing/razorpay/webhook", methods=["POST"])
+@csrf.exempt
+def razorpay_webhook():
+    if PaymentGatewayService.is_demo_mode():
+        return jsonify({"status": "ignored", "reason": "demo_mode"}), 200
+
+    raw_body = request.get_data() or b""
+    signature = (request.headers.get("X-Razorpay-Signature", "") or "").strip()
+    try:
+        PaymentGatewayService.verify_webhook_signature(raw_body, signature)
+        event_payload = json.loads(raw_body.decode("utf-8"))
+        event_name = (event_payload.get("event") or "").strip()
+        if event_name not in {"payment.captured", "order.paid"}:
+            return jsonify({"status": "ignored", "event": event_name}), 200
+
+        payment_entity = (
+            event_payload.get("payload", {})
+            .get("payment", {})
+            .get("entity", {})
+        )
+        order_id = (payment_entity.get("order_id") or "").strip()
+        payment_id = (payment_entity.get("id") or "").strip()
+        if not order_id or not payment_id:
+            raise ValueError("Missing payment details in webhook payload.")
+
+        order = PaymentGatewayService.fetch_order(order_id)
+        payment_row = PaymentGatewayService.payment_row_for_order(order_id=order_id)
+        PaymentGatewayService.validate_order_vs_payment_row(order, payment_row)
+        notes = order.get("notes") or {}
+        user_id = int(notes.get("user_id", "0") or (payment_row.user_id if payment_row else 0) or 0)
+        plan_key = (notes.get("plan_key") or (payment_row.plan_key if payment_row else "") or "").strip()
+        custom_days = (notes.get("custom_days") or "").strip() or None
+        user = db.session.get(User, user_id)
+        if not user:
+            raise ValueError("User not found for webhook payment.")
+
+        plan = SubscriptionService.resolve_plan_purchase(plan_key, custom_days=custom_days)
+        if int(order.get("amount") or 0) != int(plan["price_paise"]):
+            raise ValueError("Webhook order amount mismatch.")
+        if (order.get("currency") or "").strip().upper() != current_app.config["RAZORPAY_CURRENCY"].upper():
+            raise ValueError("Webhook order currency mismatch.")
+
+        SubscriptionService.activate_after_gateway_payment(
+            user=user,
+            plan_key=plan["plan_key"],
+            payment_id=payment_id,
+            order_id=order_id,
+            custom_days=plan.get("custom_days"),
+            gateway_payload={
+                "event": event_name,
+                "order": order,
+                "callback_fields": {
+                    "razorpay_payment_id": payment_id,
+                    "razorpay_order_id": order_id,
+                    "razorpay_signature": signature,
+                },
+            },
+        )
+    except Exception as exc:
+        current_app.logger.exception("Razorpay webhook processing failed")
+        order_id = (
+            (
+                event_payload.get("payload", {})
+                .get("payment", {})
+                .get("entity", {})
+                .get("order_id", "")
+            )
+            if "event_payload" in locals()
+            else ""
+        )
+        payment_id = (
+            (
+                event_payload.get("payload", {})
+                .get("payment", {})
+                .get("entity", {})
+                .get("id", "")
+            )
+            if "event_payload" in locals()
+            else ""
+        )
+        if order_id:
+            try:
+                PaymentGatewayService.mark_payment_failed(
+                    order_id,
+                    payment_id=payment_id,
+                    error_message=str(exc),
+                )
+            except Exception:
+                current_app.logger.exception("Failed to mark webhook payment as failed")
+        return jsonify({"status": "error", "message": str(exc)}), 400
+
+    return jsonify({"status": "ok"}), 200
+
+
+@main_bp.route("/billing/razorpay/order-status/<order_id>")
+@login_required
+@limiter.limit("60 per minute")
+def razorpay_order_status(order_id: str):
+    order_id = (order_id or "").strip()
+    if not order_id:
+        return jsonify({"state": "failed", "message": "Missing order id."}), 400
+
+    payment_row = Payment.query.filter_by(
+        user_id=current_user.id,
+        razorpay_order_id=order_id,
+    ).first()
+    if not payment_row:
+        return jsonify({"state": "failed", "message": "Order not found for this account."}), 404
+
+    if (payment_row.status or "").strip().lower() == "success":
+        return jsonify(
+            {
+                "state": "success",
+                "message": "Your premium plan has been activated successfully.",
+                "redirect_url": url_for(
+                    "main.billing_status",
+                    state="success",
+                    plan=payment_row.plan_name,
+                    order_id=order_id,
+                    payment_id=payment_row.razorpay_payment_id or "",
+                ),
+            }
+        )
+
+    if PaymentGatewayService.is_demo_mode():
+        if (payment_row.status or "").strip().lower() == "failed":
+            return jsonify(
+                {
+                    "state": "failed",
+                    "message": (payment_row.error_message or "").strip() or "Payment could not be completed.",
+                    "redirect_url": url_for(
+                        "main.billing_status",
+                        state="failed",
+                        message=(payment_row.error_message or "Payment could not be completed."),
+                        order_id=order_id,
+                    ),
+                }
+            )
+        return jsonify(
+            {
+                "state": "pending",
+                "message": "Payment is still processing. Please wait.",
+            }
+        )
+
+    try:
+        order = PaymentGatewayService.fetch_order(order_id)
+        PaymentGatewayService.validate_order_vs_payment_row(
+            order,
+            payment_row,
+            expected_user_id=current_user.id,
+        )
+        notes = order.get("notes") or {}
+        order_user_id = int(notes.get("user_id", "0") or current_user.id)
+        if order_user_id != current_user.id:
+            raise ValueError("Order does not belong to current user.")
+
+        plan_key = (notes.get("plan_key") or payment_row.plan_key or "").strip()
+        custom_days = (notes.get("custom_days") or "").strip() or None
+        if (
+            not custom_days
+            and plan_key == "pro_custom"
+            and int(payment_row.duration_days or 0) > 0
+        ):
+            custom_days = str(int(payment_row.duration_days))
+        if not plan_key:
+            raise ValueError("Unable to resolve plan key for this order.")
+
+        plan = SubscriptionService.resolve_plan_purchase(plan_key, custom_days=custom_days)
+        if int(order.get("amount") or 0) != int(plan["price_paise"]):
+            raise ValueError("Order amount mismatch.")
+        if (order.get("currency") or "").strip().upper() != current_app.config["RAZORPAY_CURRENCY"].upper():
+            raise ValueError("Order currency mismatch.")
+
+        order_payments = PaymentGatewayService.fetch_order_payments(order_id)
+        successful_payment = next(
+            (item for item in order_payments if (item.get("status") or "").strip().lower() == "captured"),
+            None,
+        )
+        if not successful_payment:
+            successful_payment = next(
+                (item for item in order_payments if (item.get("status") or "").strip().lower() == "authorized"),
+                None,
+            )
+
+        if successful_payment:
+            payment_id = (successful_payment.get("id") or "").strip()
+            if not payment_id:
+                raise ValueError("Missing payment id in successful payment record.")
+            subscription = SubscriptionService.activate_after_gateway_payment(
+                user=current_user,
+                plan_key=plan["plan_key"],
+                payment_id=payment_id,
+                order_id=order_id,
+                custom_days=plan.get("custom_days"),
+                gateway_payload={
+                    "order": order,
+                    "status_check": successful_payment,
+                    "callback_fields": {
+                        "razorpay_payment_id": payment_id,
+                        "razorpay_order_id": order_id,
+                        "razorpay_signature": "",
+                    },
+                },
+            )
+            return jsonify(
+                {
+                    "state": "success",
+                    "message": "Your premium plan has been activated successfully.",
+                    "redirect_url": url_for(
+                        "main.billing_status",
+                        state="success",
+                        plan=subscription.plan_name,
+                        order_id=order_id,
+                        payment_id=payment_id,
+                    ),
+                }
+            )
+
+        failed_payment = next(
+            (item for item in order_payments if (item.get("status") or "").strip().lower() == "failed"),
+            None,
+        )
+        if failed_payment:
+            failed_payment_id = (failed_payment.get("id") or "").strip()
+            failure_message = (
+                (failed_payment.get("error_description") or "").strip()
+                or (failed_payment.get("error_reason") or "").strip()
+                or (failed_payment.get("error_code") or "").strip()
+                or "Payment failed at gateway."
+            )
+            try:
+                PaymentGatewayService.mark_payment_failed(
+                    order_id,
+                    payment_id=failed_payment_id,
+                    error_message=failure_message,
+                )
+            except Exception:
+                current_app.logger.exception("Failed to persist failed payment status. order_id=%s", order_id)
+            return jsonify(
+                {
+                    "state": "failed",
+                    "message": failure_message,
+                    "redirect_url": url_for(
+                        "main.billing_status",
+                        state="failed",
+                        message=failure_message,
+                        order_id=order_id,
+                        payment_id=failed_payment_id,
+                    ),
+                }
+            )
+    except Exception:
+        current_app.logger.exception("Razorpay order status reconciliation failed. order_id=%s", order_id)
+
+    if (payment_row.status or "").strip().lower() == "failed":
+        return jsonify(
+            {
+                "state": "failed",
+                "message": (payment_row.error_message or "").strip() or "Payment could not be completed.",
+                "redirect_url": url_for(
+                    "main.billing_status",
+                    state="failed",
+                    message=(payment_row.error_message or "Payment could not be completed."),
+                    order_id=order_id,
+                    payment_id=payment_row.razorpay_payment_id or "",
+                ),
+            }
+        )
+
+    return jsonify(
+        {
+            "state": "pending",
+            "message": "Payment verification is in progress. Please wait a moment.",
+        }
+    )
+
+
+@main_bp.route("/billing/pay/<token>")
+def billing_pay_link(token: str):
+    token_payload = _decode_payment_link_token(token)
+    if not token_payload:
+        return render_template(
+            "billing_pay_link.html",
+            is_valid=False,
+            error_message="This payment link is invalid or expired. Please generate a new one.",
+            can_pay=False,
+        )
+
+    order_id = token_payload["order_id"]
+    user_id = token_payload["user_id"]
+    payment_row = Payment.query.filter_by(
+        razorpay_order_id=order_id,
+        user_id=user_id,
+    ).first()
+    if not payment_row:
+        return render_template(
+            "billing_pay_link.html",
+            is_valid=False,
+            error_message="Payment order not found. Please generate a fresh payment link.",
+            can_pay=False,
+        )
+
+    status_key = (payment_row.status or "pending").strip().lower()
+    can_pay = PaymentGatewayService.is_live_mode() and status_key != "success"
+    callback_url = _build_callback_url()
+    payment_link_url = url_for("main.billing_pay_link", token=token, _external=True)
+    status_url = url_for(
+        "main.billing_status",
+        order_id=order_id,
+        state="pending" if status_key != "success" else "success",
+    )
+    return render_template(
+        "billing_pay_link.html",
+        is_valid=True,
+        can_pay=can_pay,
+        payment_mode="live" if PaymentGatewayService.is_live_mode() else "demo",
+        order_id=order_id,
+        plan_name=(payment_row.plan_name or "Premium Plan"),
+        amount_paise=int(payment_row.amount_paise or 0),
+        currency=((payment_row.currency or "INR").strip().upper() or "INR"),
+        status_key=status_key,
+        status_message=(
+            "Payment already completed for this plan."
+            if status_key == "success"
+            else "Use the secure payment button below to complete this order."
+        ),
+        callback_url=callback_url,
+        key_id=(current_app.config.get("RAZORPAY_KEY_ID") or "").strip(),
+        app_name=current_app.config.get("APP_NAME") or "PDFMaster Ultra Suite",
+        payment_link_url=payment_link_url,
+        status_url=status_url,
+    )
+
+
 @main_bp.route("/billing/status")
 def billing_status():
     state = (request.args.get("state", "failed") or "failed").strip().lower()
-    if state not in {"success", "failed"}:
+    if state not in {"success", "failed", "pending"}:
         state = "failed"
     message = (request.args.get("message", "") or "").strip()
+    plan = (request.args.get("plan", "") or "").strip()
+    order_id = (request.args.get("order_id", "") or "").strip()
+    payment_id = (request.args.get("payment_id", "") or "").strip()
+
+    if order_id:
+        payment_query = Payment.query.filter_by(razorpay_order_id=order_id)
+        if current_user.is_authenticated:
+            payment_query = payment_query.filter_by(user_id=current_user.id)
+        payment_row = payment_query.first()
+        if payment_row:
+            persisted_status = (payment_row.status or "pending").strip().lower()
+            if persisted_status == "success":
+                state = "success"
+                if not plan:
+                    plan = (payment_row.plan_name or "").strip()
+                if not payment_id:
+                    payment_id = (payment_row.razorpay_payment_id or "").strip()
+                if not message:
+                    message = "Your premium plan has been activated successfully."
+            elif persisted_status == "pending" and state == "failed":
+                state = "pending"
+                if not message:
+                    message = "Payment verification is in progress. Please wait a moment."
+            elif persisted_status == "failed" and not message:
+                message = (payment_row.error_message or "").strip() or "Payment could not be completed."
+
     if not message:
-        message = (
-            "Your premium plan has been activated successfully."
-            if state == "success"
-            else "Payment could not be completed."
-        )
+        if state == "success":
+            message = "Your premium plan has been activated successfully."
+        elif state == "pending":
+            message = "Payment verification is in progress. Please wait a moment."
+        else:
+            message = "Payment could not be completed."
     return render_template(
         "billing_status.html",
         state=state,
         message=message,
-        plan=(request.args.get("plan", "") or "").strip(),
-        order_id=(request.args.get("order_id", "") or "").strip(),
-        payment_id=(request.args.get("payment_id", "") or "").strip(),
+        plan=plan,
+        order_id=order_id,
+        payment_id=payment_id,
+        status_poll_url=(
+            url_for("main.razorpay_order_status", order_id=order_id)
+            if order_id and state == "pending"
+            else ""
+        ),
     )
 
 
@@ -942,6 +1831,15 @@ def download_file(file_id: int):
         db.session.commit()
         flash("Requested file is no longer available.", "warning")
         return redirect(url_for("main.dashboard"))
+    PrivacyService.log_file_access(
+        owner_user_id=current_user.id,
+        actor_user_id=current_user.id,
+        file_id=file_record.id,
+        action="download",
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or ""),
+        user_agent=request.headers.get("User-Agent", ""),
+        details={"source": "dashboard"},
+    )
     return send_file(
         absolute_path,
         as_attachment=True,
@@ -962,6 +1860,15 @@ def preview_file(file_id: int):
         db.session.commit()
         flash("Requested file preview is no longer available.", "warning")
         return redirect(url_for("main.dashboard"))
+    PrivacyService.log_file_access(
+        owner_user_id=current_user.id,
+        actor_user_id=current_user.id,
+        file_id=file_record.id,
+        action="preview",
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or ""),
+        user_agent=request.headers.get("User-Agent", ""),
+        details={"source": "dashboard"},
+    )
     return send_file(
         absolute_path,
         as_attachment=False,
@@ -1031,24 +1938,36 @@ def job_status(job_id: int):
 @login_required
 def cloud_upload():
     upload = request.files.get("cloud_file")
-    StorageService.save_uploaded_file(upload, current_user.id, kind="cloud", label="Cloud storage item")
-    flash("File added to your personal cloud storage.", "success")
+    try:
+        StorageService.save_uploaded_file(upload, current_user.id, kind="cloud", label="Cloud storage item")
+    except Exception as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("File added to your personal cloud storage.", "success")
     return redirect(url_for("tools.tool_detail", tool_key="cloud_storage"))
 
 
 @main_bp.route("/cloud/<int:file_id>/rename", methods=["POST"])
 @login_required
 def rename_cloud_file(file_id: int):
-    StorageService.rename_file(file_id, current_user.id, request.form.get("new_name", ""))
-    flash("Cloud file renamed.", "success")
+    try:
+        StorageService.rename_file(file_id, current_user.id, request.form.get("new_name", ""))
+    except Exception as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Cloud file renamed.", "success")
     return redirect(url_for("tools.tool_detail", tool_key="cloud_storage"))
 
 
 @main_bp.route("/cloud/<int:file_id>/delete", methods=["POST"])
 @login_required
 def delete_cloud_file(file_id: int):
-    StorageService.delete_file(file_id, current_user.id)
-    flash("Cloud file deleted.", "success")
+    try:
+        StorageService.delete_file(file_id, current_user.id)
+    except Exception as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Cloud file deleted.", "success")
     return redirect(url_for("tools.tool_detail", tool_key="cloud_storage"))
 
 
@@ -1062,9 +1981,25 @@ def access_share_link(token: str):
             share_link = ShareService.validate_link(token, password=password, check_password=True)
         else:
             share_link = ShareService.get_link_for_access(token)
+            PrivacyService.log_share_access(
+                share_link_id=share_link.id,
+                event="view",
+                status="ok",
+                ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or ""),
+                user_agent=request.headers.get("User-Agent", ""),
+                details={"token": token},
+            )
         file_record = share_link.file
         if request.method == "POST" or not share_link.password_hash:
             ShareService.mark_download(share_link)
+            PrivacyService.log_share_access(
+                share_link_id=share_link.id,
+                event="download",
+                status="ok",
+                ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or ""),
+                user_agent=request.headers.get("User-Agent", ""),
+                details={"token": token},
+            )
             absolute_path = StorageService.absolute_path(file_record)
             if not absolute_path.exists():
                 raise FileNotFoundError("Shared file is no longer available.")
@@ -1077,5 +2012,18 @@ def access_share_link(token: str):
     except HTTPException:
         error = "Share link is invalid or no longer available."
     except Exception as exc:
-        error = str(exc)
+        current_app.logger.exception("Share access failed for token=%s", token)
+        error = str(exc) if isinstance(exc, ValueError) else "Unable to open this share link."
+        if share_link:
+            try:
+                PrivacyService.log_share_access(
+                    share_link_id=share_link.id,
+                    event="error",
+                    status="failed",
+                    ip_address=request.headers.get("X-Forwarded-For", request.remote_addr or ""),
+                    user_agent=request.headers.get("User-Agent", ""),
+                    details={"token": token, "error": error},
+                )
+            except Exception:
+                current_app.logger.exception("Failed to write share access log")
     return render_template("share_access.html", token=token, error=error, share_link=share_link)

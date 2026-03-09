@@ -2,8 +2,17 @@
 {% block title %}Admin Logs | {{ APP_NAME }}{% endblock %}
 {% block content %}
 <section class="mb-4">
-  <span class="eyebrow">Audit logs</span>
-  <h1 class="h2 mb-0">Recent activity</h1>
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+    <div>
+      <span class="eyebrow">Audit logs</span>
+      <h1 class="h2 mb-0">Recent activity</h1>
+    </div>
+    <form method="get" class="d-flex gap-2">
+      <input class="form-control" type="search" name="q" value="{{ q or '' }}" placeholder="Search logs">
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+      <button class="btn btn-outline-secondary">Search</button>
+    </form>
+  </div>
 </section>
 <div class="table-responsive">
   <table class="table align-middle">
@@ -17,8 +26,23 @@
         <td>{{ row.ip_address }}</td>
         <td>{{ row.created_at.strftime('%d %b %Y %H:%M') }}</td>
       </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-secondary py-4">No logs found.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+{% if pagination and pagination.pages > 1 %}
+<nav aria-label="Logs pagination" class="mt-3">
+  <ul class="pagination pagination-sm mb-0">
+    <li class="page-item {{ 'disabled' if not pagination.has_prev else '' }}">
+      <a class="page-link" href="{{ url_for('admin.logs', page=pagination.prev_num, per_page=per_page, q=q) }}">Prev</a>
+    </li>
+    <li class="page-item disabled"><span class="page-link">Page {{ pagination.page }} / {{ pagination.pages }}</span></li>
+    <li class="page-item {{ 'disabled' if not pagination.has_next else '' }}">
+      <a class="page-link" href="{{ url_for('admin.logs', page=pagination.next_num, per_page=per_page, q=q) }}">Next</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
 {% endblock %}

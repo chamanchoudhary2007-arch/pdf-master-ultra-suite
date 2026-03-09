@@ -4,98 +4,118 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}All-in-one PDF workspace for merge, split, OCR, convert, scan, signing, and secure sharing workflows.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}{{ APP_NAME }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Secure and fast document workflows for students, offices, and teams.{% endblock %}">
+  <meta property="og:url" content="{{ request.url }}">
+  <meta property="og:image" content="{{ url_for('static', filename='images/logo.jpeg', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#14503e">
   <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/logo.jpeg') }}">
+  <link rel="manifest" href="{{ url_for('main.web_manifest') }}">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@5.0.18/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk@5.0.18/index.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tools.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
   {% block head %}{% endblock %}
 </head>
-<body class="app-body" data-billing-settings-url="{{ billing_settings_url }}">
-  <nav class="navbar navbar-expand-lg sticky-top app-nav border-bottom">
-    <div class="container-xxl">
-      <a class="navbar-brand fw-semibold" href="{{ url_for('main.landing') }}">
-        <img class="brand-mark" src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="{{ APP_NAME }} logo">
-        {{ APP_NAME }}
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navMain">
-        <ul class="navbar-nav me-auto gap-lg-2">
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.landing') }}">Home</a></li>
-          {% if current_user.is_authenticated %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.all_tools') }}">All Tools</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('tools.tool_detail', tool_key='document_scanner') }}">Quick Scan</a></li>
-          {% endif %}
-          {% if current_user.is_authenticated and current_user.is_admin %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Admin</a></li>
-          {% endif %}
-        </ul>
-        <div class="d-flex align-items-center gap-2">
-          <button class="btn btn-theme" type="button" data-theme-toggle>
-            <i class="bi bi-moon-stars"></i>
-          </button>
-          {% if current_user.is_authenticated %}
-          {% set profile_label = current_user.full_name or current_user.email or 'User' %}
-          {% if is_premium_user %}
-          <span class="wallet-pill premium-chip"><i class="bi bi-gem me-1"></i>Pro</span>
-          {% endif %}
-          <div class="dropdown">
-            <button class="profile-pill profile-menu border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ profile_label }}">
-              {% if is_premium_user %}
-              <span class="premium-avatar-ring" aria-hidden="true">
-                {% if profile_photo_url %}
-                <img class="profile-avatar-img premium-avatar-img" src="{{ profile_photo_url }}" alt="Premium profile photo">
-                {% else %}
-                <span class="profile-avatar premium-avatar-fallback">{{ profile_label[0]|upper }}</span>
-                {% endif %}
-                <span class="premium-verified-badge"><i class="bi bi-check-lg"></i></span>
+<body
+  class="app-body {{ 'is-authenticated' if current_user.is_authenticated else 'is-guest' }} {{ 'plan-premium' if current_user.is_authenticated and is_premium_user else 'plan-free' if current_user.is_authenticated else 'plan-guest' }}"
+  data-user-plan="{{ 'premium' if current_user.is_authenticated and is_premium_user else 'free' if current_user.is_authenticated else 'guest' }}"
+  data-billing-settings-url="{{ billing_settings_url }}"
+>
+  {% set endpoint = request.endpoint or '' %}
+  <header class="header app-header-shell">
+    <nav class="navbar navbar-expand-xl app-nav border-bottom {{ 'is-auth-nav' if current_user.is_authenticated else 'is-guest-nav' }}">
+      <div class="container-xxl app-nav-frame">
+        <div class="logo app-brand-zone">
+          <a class="navbar-brand app-brand" href="{{ url_for('main.landing') }}">
+            <span class="brand-mark-wrap">
+              <img class="brand-mark" src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="{{ APP_NAME }} logo">
+            </span>
+            <span class="brand-copy">
+              <span class="brand-kicker">Premium PDF workspace</span>
+              {% set brand_words = APP_NAME.split(' ') %}
+              <span class="brand-name" aria-label="{{ APP_NAME }}">
+                {% for word in brand_words %}
+                <span class="brand-word {{ 'brand-word-primary' if loop.first else 'brand-word-accent' }}">{{ word }}</span>
+                {% endfor %}
               </span>
-              {% else %}
-                {% if profile_photo_url %}
-                <img class="profile-avatar-img" src="{{ profile_photo_url }}" alt="Profile photo">
-                {% else %}
-                <span class="profile-avatar">{{ profile_label[0]|upper }}</span>
-                {% endif %}
-              {% endif %}
-              <span class="profile-name">{{ profile_label }}</span>
-              <i class="bi bi-chevron-down profile-chevron"></i>
+            </span>
+          </a>
+          {% if not current_user.is_authenticated %}
+          <span class="app-brand-note d-none d-xl-inline-flex">
+            <span class="app-brand-note-icon" aria-hidden="true">
+              <i class="bi {{ 'bi-stars' if is_premium_user else 'bi-shield-check' }}"></i>
+            </span>
+            <span class="app-brand-note-text">{{ 'Premium workspace' if is_premium_user else 'Secure cloud workflows' }}</span>
+          </span>
+          {% endif %}
+        </div>
+        {% if current_user.is_authenticated %}
+        <div class="app-nav-collapse app-nav-collapse-auth">
+          <div class="d-flex align-items-center gap-2 app-nav-actions cta-section">
+            <button class="btn app-sidebar-trigger" type="button" data-bs-toggle="offcanvas" data-bs-target="#navQuickSidebar" aria-controls="navQuickSidebar" aria-label="Open quick menu" aria-expanded="false">
+              <span class="app-sidebar-trigger-icon app-sidebar-trigger-icon-open" aria-hidden="true">
+                <i class="bi bi-layout-sidebar-inset"></i>
+              </span>
+              <span class="app-sidebar-trigger-icon app-sidebar-trigger-icon-close" aria-hidden="true">
+                <i class="bi bi-x-lg"></i>
+              </span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end profile-dropdown">
-              <li>
-                <span class="dropdown-item-text small text-muted">
-                  {% if is_premium_user %}
-                  <i class="bi bi-gem me-1 text-warning"></i>Premium Member
-                  {% else %}
-                  <i class="bi bi-person me-1"></i>Free Member
-                  {% endif %}
-                </span>
+          </div>
+        </div>
+        {% else %}
+        <button class="navbar-toggler app-nav-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse app-nav-collapse" id="navMain">
+          <div class="app-nav-center">
+            <ul class="navbar-nav app-nav-links nav-menu">
+              <li class="nav-item">
+                <a class="nav-link {{ 'active' if endpoint == 'main.landing' else '' }}" href="{{ url_for('main.landing') }}">
+                  <i class="bi bi-house-door"></i><span>Home</span>
+                </a>
               </li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('main.dashboard') }}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('main.all_tools') }}"><i class="bi bi-grid-3x3-gap me-2"></i>All tools</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('main.settings') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('main.settings') }}#refer-earn"><i class="bi bi-gift me-2"></i>Refer &amp; Earn</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('main.settings') }}#share-with-friends"><i class="bi bi-share me-2"></i>Share with friends</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li>
-                <form action="{{ url_for('auth.logout') }}" method="post">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="dropdown-item text-danger" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Logout</button>
-                </form>
+              <li class="nav-item">
+                <button class="nav-btn nav-install-btn" type="button" data-pwa-install>
+                  <i class="bi bi-download"></i><span>Install</span>
+                </button>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link {{ 'active' if endpoint.startswith('auth.login') else '' }}" href="{{ url_for('auth.login') }}">
+                  <i class="bi bi-box-arrow-in-right"></i><span>Login</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('main.landing') }}#pricing">
+                  <i class="bi bi-gem"></i><span>Pro</span>
+                </a>
               </li>
             </ul>
           </div>
-          {% else %}
-          <a class="btn btn-outline-secondary" href="{{ url_for('auth.login') }}">Login</a>
-          <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Get Started</a>
-          {% endif %}
+          <div class="d-flex align-items-center gap-2 app-nav-actions cta-section">
+            <a class="btn btn-primary nav-cta-btn" href="{{ url_for('auth.signup') }}">Get Started</a>
+          </div>
         </div>
+        {% endif %}
       </div>
-    </div>
-  </nav>
+    </nav>
+  </header>
 
   <main class="pb-5">
     <div class="container-xxl py-4">
@@ -119,9 +139,85 @@
   <a class="fab-scan btn btn-primary rounded-circle" href="{{ url_for('tools.tool_detail', tool_key='document_scanner') }}">
     <i class="bi bi-camera"></i>
   </a>
+  {% set profile_label = current_user.full_name or current_user.email or 'User' %}
+  <div class="offcanvas offcanvas-end nav-quick-sidebar" tabindex="-1" id="navQuickSidebar" aria-labelledby="navQuickSidebarLabel">
+    <div class="offcanvas-header">
+      <h2 class="offcanvas-title h6 mb-0" id="navQuickSidebarLabel">Quick menu</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="nav-quick-profile">
+        {% if is_premium_user %}
+        <span class="premium-avatar-ring nav-quick-avatar-ring" aria-hidden="true">
+          {% if profile_photo_url %}
+          <img class="profile-avatar-img premium-avatar-img" src="{{ profile_photo_url }}" alt="Premium profile photo">
+          {% else %}
+          <span class="profile-avatar premium-avatar-fallback">{{ profile_label[0]|upper }}</span>
+          {% endif %}
+          <span class="premium-verified-badge"><i class="bi bi-check-lg"></i></span>
+        </span>
+        {% else %}
+          {% if profile_photo_url %}
+          <img class="profile-avatar-img" src="{{ profile_photo_url }}" alt="Profile photo">
+          {% else %}
+          <span class="profile-avatar">{{ profile_label[0]|upper }}</span>
+          {% endif %}
+        {% endif %}
+        <div class="nav-quick-user-copy">
+          <div class="fw-semibold text-truncate">{{ profile_label }}</div>
+          <div class="small text-muted text-truncate">
+            {% if is_premium_user %}
+            Premium Member
+            {% else %}
+            Free Member
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="d-grid gap-2 mt-3">
+        <button class="btn btn-outline-secondary nav-quick-theme-toggle" type="button" data-theme-toggle>
+          <i class="bi bi-moon-stars me-2"></i>Toggle theme
+        </button>
+        {% if is_premium_user %}
+        <span class="wallet-pill premium-chip nav-plan-chip nav-quick-plan-chip text-center">
+          <i class="bi bi-stars me-1"></i>Premium Active
+        </span>
+        {% else %}
+        <a class="btn btn-outline-secondary nav-pro-btn" href="{{ billing_settings_url }}">
+          <i class="bi bi-gem me-1"></i>Go Pro
+        </a>
+        {% endif %}
+      </div>
+
+      <div class="nav-quick-links mt-3">
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.landing') }}"><i class="bi bi-house-door me-2"></i>Home</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.dashboard') }}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.all_tools') }}"><i class="bi bi-grid-3x3-gap me-2"></i>All tools</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('tools.tool_detail', tool_key='document_scanner') }}"><i class="bi bi-camera2 me-2"></i>Quick Scan</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('workspace.index') }}"><i class="bi bi-kanban me-2"></i>Workspace</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.settings') }}"><i class="bi bi-gear me-2"></i>Settings</a>
+        {% if can_access_admin %}
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('admin.dashboard') }}">
+          <i class="bi bi-shield-lock me-2"></i>
+          {{ 'Admin Console' if can_manage_admin else 'Admin Console (Read-only)' }}
+        </a>
+        {% endif %}
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.settings', tab='refer', _anchor='refer-earn') }}"><i class="bi bi-gift me-2"></i>Refer &amp; Earn</a>
+        <a class="btn btn-light nav-quick-link" href="{{ url_for('main.settings', tab='share', _anchor='share-with-friends') }}"><i class="bi bi-share me-2"></i>Share with friends</a>
+      </div>
+
+      <form action="{{ url_for('auth.logout') }}" method="post" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger w-100" type="submit">
+          <i class="bi bi-box-arrow-right me-2"></i>Logout
+        </button>
+      </form>
+    </div>
+  </div>
   {% endif %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>

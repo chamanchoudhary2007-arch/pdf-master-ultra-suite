@@ -1,0 +1,41 @@
+:root {
+  --surface-radius: 1.1rem;
+  --content-max-width: 1320px;
+}
+
+body.app-body {
+  line-height: 1.55;
+  font-family: "Manrope", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
+}
+
+.container-xxl {
+  max-width: var(--content-max-width);
+}
+
+.card,
+.btn,
+.form-control,
+.form-select,
+.alert {
+  border-radius: var(--surface-radius);
+}
+
+.form-control,
+.form-select {
+  border-color: var(--app-border);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: rgba(22, 109, 80, 0.55);
+  box-shadow: 0 0 0 0.2rem rgba(22, 109, 80, 0.12);
+}

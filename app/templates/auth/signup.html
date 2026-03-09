@@ -1,64 +1,78 @@
 {% extends 'base.html' %}
 {% block title %}Sign Up | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="row justify-content-center">
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm auth-card">
-      <div class="card-body p-4 p-lg-5">
-        <span class="eyebrow">Create account</span>
-        <h1 class="h3 mb-2">Start using PDFMaster Ultra Suite</h1>
-        <p class="text-muted mb-4">We will send a 6-digit OTP to your email before account creation.</p>
-        <a
-          class="btn google-auth-btn w-100"
-          href="{{ url_for('main.google_login_entry') if google_oauth_enabled else url_for('auth.signup') }}"
-          {% if not google_oauth_enabled %}aria-disabled="true"{% endif %}
-        >
-          <span class="google-g-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.28-2.1 3.56-5.2 3.56-8.65Z" fill="#4285F4"/>
-              <path d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.88-3A7.2 7.2 0 0 1 12 19.3a7.3 7.3 0 0 1-6.86-5.04H1.13v3.09A12 12 0 0 0 12 24Z" fill="#34A853"/>
-              <path d="M5.14 14.26a7.2 7.2 0 0 1-.38-2.26c0-.79.14-1.55.38-2.26V6.65H1.13A12 12 0 0 0 0 12c0 1.93.46 3.76 1.13 5.35l4.01-3.09Z" fill="#FBBC05"/>
-              <path d="M12 4.77c1.76 0 3.34.6 4.58 1.78l3.44-3.44C17.95 1.17 15.23 0 12 0 7.3 0 3.27 2.69 1.13 6.65l4.01 3.09A7.3 7.3 0 0 1 12 4.77Z" fill="#EA4335"/>
-            </svg>
-          </span>
-          Continue with Google
-        </a>
-        {% if not google_oauth_enabled %}
-        <div class="small text-muted mt-2">Google sign-up will be enabled after OAuth keys are configured.</div>
-        {% endif %}
-        <div class="auth-divider"><span>OR</span></div>
-        <form method="post" class="row g-3">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="col-12">
-            <label class="form-label">Full name</label>
-            <input class="form-control" type="text" name="full_name" value="{{ form_data.full_name }}" required>
+<section class="auth-shell">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-10 col-lg-8 col-xl-6">
+      <div class="card border-0 shadow-sm auth-card premium-auth-card auth-main-card overflow-hidden">
+        <div class="card-body p-4 p-lg-5 d-flex flex-column gap-3">
+          <div class="auth-mode-label mb-0">
+            <span class="auth-mode-chip">Sign up</span>
           </div>
-          <div class="col-12">
-            <label class="form-label">Email</label>
-            <input class="form-control" type="email" name="email" value="{{ form_data.email }}" required>
+          <h1 class="auth-panel-title mb-0">Sign up</h1>
+
+          <a
+            class="btn google-auth-btn w-100"
+            href="{{ google_login_url if google_oauth_enabled else '#' }}"
+            {% if not google_oauth_enabled %}aria-disabled="true"{% endif %}
+          >
+            <span class="google-g-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.28-2.1 3.56-5.2 3.56-8.65Z" fill="#4285F4"/>
+                <path d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.88-3A7.2 7.2 0 0 1 12 19.3a7.3 7.3 0 0 1-6.86-5.04H1.13v3.09A12 12 0 0 0 12 24Z" fill="#34A853"/>
+                <path d="M5.14 14.26a7.2 7.2 0 0 1-.38-2.26c0-.79.14-1.55.38-2.26V6.65H1.13A12 12 0 0 0 0 12c0 1.93.46 3.76 1.13 5.35l4.01-3.09Z" fill="#FBBC05"/>
+                <path d="M12 4.77c1.76 0 3.34.6 4.58 1.78l3.44-3.44C17.95 1.17 15.23 0 12 0 7.3 0 3.27 2.69 1.13 6.65l4.01 3.09A7.3 7.3 0 0 1 12 4.77Z" fill="#EA4335"/>
+              </svg>
+            </span>
+            Sign up with Google
+          </a>
+
+          {% if not google_oauth_enabled %}
+          <div class="alert alert-warning mb-0">
+            {{ google_setup_help }}
           </div>
-          <div class="col-12">
-            <label class="form-label">Password</label>
-            <input class="form-control" type="password" name="password" minlength="8" required>
+          {% endif %}
+
+          <div class="auth-divider my-2"><span>or create with email</span></div>
+
+          <form method="post" action="{{ url_for('auth.signup') }}" class="vstack gap-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <input type="hidden" name="referral_code" value="{{ referral_code }}">
+            <div>
+              <label class="form-label small text-muted" for="signupName">Full name</label>
+              <input class="form-control" id="signupName" name="full_name" type="text" autocomplete="name" value="{{ request.form.get('full_name', '') }}" required>
+            </div>
+            <div>
+              <label class="form-label small text-muted" for="signupEmail">Email address</label>
+              <input class="form-control" id="signupEmail" name="email" type="email" autocomplete="email" value="{{ request.form.get('email', '') }}" required>
+              <div class="form-text">A verification link will be sent to this email before first login.</div>
+            </div>
+            <div>
+              <label class="form-label small text-muted" for="signupPassword">Password</label>
+              <input class="form-control" id="signupPassword" name="password" type="password" autocomplete="new-password" minlength="8" required>
+              <div class="form-text">Use at least 8 characters with letters and numbers.</div>
+            </div>
+            <div>
+              <label class="form-label small text-muted" for="signupPasswordConfirm">Confirm password</label>
+              <input class="form-control" id="signupPasswordConfirm" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+            </div>
+            <button class="btn btn-primary w-100" type="submit">Create account with email</button>
+          </form>
+
+          <div class="auth-footer-switch pt-2">
+            <a href="{{ url_for('auth.login') }}" class="signin-chip" aria-label="Login with Google">
+              <span class="google-g-icon signin-chip-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.28-2.1 3.56-5.2 3.56-8.65Z" fill="#4285F4"/>
+                  <path d="M12 24c3.24 0 5.96-1.07 7.94-2.9l-3.88-3A7.2 7.2 0 0 1 12 19.3a7.3 7.3 0 0 1-6.86-5.04H1.13v3.09A12 12 0 0 0 12 24Z" fill="#34A853"/>
+                  <path d="M5.14 14.26a7.2 7.2 0 0 1-.38-2.26c0-.79.14-1.55.38-2.26V6.65H1.13A12 12 0 0 0 0 12c0 1.93.46 3.76 1.13 5.35l4.01-3.09Z" fill="#FBBC05"/>
+                  <path d="M12 4.77c1.76 0 3.34.6 4.58 1.78l3.44-3.44C17.95 1.17 15.23 0 12 0 7.3 0 3.27 2.69 1.13 6.65l4.01 3.09A7.3 7.3 0 0 1 12 4.77Z" fill="#EA4335"/>
+                </svg>
+              </span>
+              <span>Login</span>
+            </a>
           </div>
-          <div class="col-12">
-            <label class="form-label">Referral Code <span class="text-muted small">(optional)</span></label>
-            <input
-              class="form-control"
-              type="text"
-              name="referral_code"
-              value="{{ form_data.referral_code }}"
-              placeholder="Got a code from a friend?"
-              maxlength="16"
-              autocomplete="off"
-            >
-          </div>
-          <div class="col-12">
-            <button class="btn btn-primary w-100">Send OTP</button>
-          </div>
-        </form>
-        <div class="small mt-4">
-          Already have an account? <a href="{{ url_for('auth.login') }}">Login</a>
         </div>
       </div>
     </div>

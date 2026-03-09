@@ -1,119 +1,227 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="mb-4">
-  <div class="dashboard-topbar">
+<section class="dashboard-hero-shell mb-4">
+  <div class="row g-4 align-items-stretch">
+    <div class="col-xl-8">
+      <div class="dashboard-hero-panel h-100">
+        <div class="dashboard-hero-copy">
+          <span class="eyebrow">Workspace</span>
+          <h1 class="dashboard-display">Operate every PDF workflow from one polished command center.</h1>
+          <p class="dashboard-subtitle">
+            Search tools, manage outputs, unlock Pro workflows, and keep your daily document work moving from one premium dashboard.
+          </p>
+          <div class="dashboard-plan-banner {{ 'is-premium' if is_premium_user else 'is-free' }}">
+            {% if is_premium_user %}
+            <i class="bi bi-stars"></i>
+            <span>Pro workspace active with premium styling, tool access, and priority workflows.</span>
+            {% else %}
+            <i class="bi bi-lightning-charge"></i>
+            <span>Free workspace active. Upgrade to unlock premium tools, richer limits, and faster workflows.</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="dashboard-stat-grid">
+          <article class="dashboard-stat-card">
+            <span class="dashboard-stat-label">Total jobs</span>
+            <strong>{{ total_jobs }}</strong>
+            <small>Queue, processing, and completed work</small>
+          </article>
+          <article class="dashboard-stat-card">
+            <span class="dashboard-stat-label">Completed</span>
+            <strong>{{ completed_jobs }}</strong>
+            <small>Ready to preview or download</small>
+          </article>
+          <article class="dashboard-stat-card">
+            <span class="dashboard-stat-label">Failed</span>
+            <strong>{{ failed_jobs }}</strong>
+            <small>Monitor issues quickly from recent jobs</small>
+          </article>
+          <article class="dashboard-stat-card">
+            <span class="dashboard-stat-label">Favorites</span>
+            <strong>{{ favorite_keys|length }}</strong>
+            <small>Pinned tools for repeated workflows</small>
+          </article>
+        </div>
+
+        <div class="dashboard-trust-strip">
+          <span class="dashboard-trust-pill"><i class="bi bi-shield-check"></i>Secure workspace</span>
+          <span class="dashboard-trust-pill"><i class="bi bi-cloud-check"></i>Cloud-ready access</span>
+          <span class="dashboard-trust-pill"><i class="bi bi-stars"></i>Premium-grade catalog</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <aside class="workspace-plan-panel h-100">
+        <div class="workspace-plan-top">
+          {% if is_premium_user %}
+          <span class="subscription-tier-pill is-premium"><i class="bi bi-gem"></i>Pro Active</span>
+          {% else %}
+          <span class="subscription-tier-pill"><i class="bi bi-lightning-charge"></i>Free Tier</span>
+          {% endif %}
+          {% if active_subscription %}
+          <span class="plan-validity-pill">Valid till {{ active_subscription.expires_at.strftime('%d %b %Y') }}</span>
+          {% endif %}
+        </div>
+        <h2 class="workspace-plan-title">{{ active_subscription.plan_name if active_subscription else 'Upgrade to Premium' }}</h2>
+        <p class="workspace-plan-copy">
+          {% if active_subscription %}
+          Your active membership unlocks premium workflows, higher limits, and faster access across the suite.
+          {% else %}
+          Activate Premium to unlock the full catalog, richer workflows, and a more powerful daily workspace.
+          {% endif %}
+        </p>
+        <div class="workspace-plan-metrics">
+          <div class="workspace-plan-metric">
+            <span>Catalog access</span>
+            <strong>{{ tools|length }} tools matched</strong>
+          </div>
+          <div class="workspace-plan-metric">
+            <span>Recent activity</span>
+            <strong>{{ recent_jobs|length }} job{{ '' if recent_jobs|length == 1 else 's' }}</strong>
+          </div>
+          <div class="workspace-plan-metric">
+            <span>Cloud files</span>
+            <strong>{{ cloud_files|length }} tracked</strong>
+          </div>
+        </div>
+        <div class="workspace-plan-actions">
+          <a class="btn btn-primary" href="{{ billing_settings_url }}">
+            <i class="bi bi-stars me-1"></i>{{ 'Manage plan' if is_premium_user else 'Unlock Pro' }}
+          </a>
+          <a class="btn btn-outline-secondary" href="{{ url_for('main.download_recent_outputs_zip') }}">
+            <i class="bi bi-download me-1"></i>Download outputs
+          </a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="dashboard-action-surface mb-4">
+  <div class="section-heading-row">
     <div>
-      <span class="eyebrow">Workspace</span>
-      <h1 class="h2 mb-1">Your document dashboard</h1>
-      <p class="text-secondary mb-0">Search tools, review job history, manage cloud files, and unlock Pro-only workflows from one control center.</p>
+      <span class="eyebrow">Quick actions</span>
+      <h2 class="section-title">Launch daily workflows instantly</h2>
     </div>
+    <a class="section-link" href="{{ url_for('main.all_tools') }}">Open full catalog</a>
+  </div>
+  <div class="quick-action-grid">
+    <a class="quick-action-card is-primary" href="{{ url_for('tools.tool_detail', tool_key='merge_pdf') }}">
+      <span class="quick-action-icon" data-icon-fallback="M"><i class="bi bi-files"></i></span>
+      <span class="quick-action-copy">
+        <strong>Merge PDF</strong>
+        <small>Combine files fast</small>
+      </span>
+    </a>
+    <a class="quick-action-card" href="{{ url_for('tools.tool_detail', tool_key='compress_pdf') }}">
+      <span class="quick-action-icon" data-icon-fallback="C"><i class="bi bi-file-zip"></i></span>
+      <span class="quick-action-copy">
+        <strong>Compress</strong>
+        <small>Reduce file size</small>
+      </span>
+    </a>
+    <a class="quick-action-card" href="{{ url_for('tools.tool_detail', tool_key='images_to_pdf') }}">
+      <span class="quick-action-icon" data-icon-fallback="I"><i class="bi bi-file-earmark-image"></i></span>
+      <span class="quick-action-copy">
+        <strong>Image to PDF</strong>
+        <small>Convert scans cleanly</small>
+      </span>
+    </a>
+    <a class="quick-action-card" href="{{ billing_settings_url }}">
+      <span class="quick-action-icon" data-icon-fallback="P"><i class="bi bi-gem"></i></span>
+      <span class="quick-action-copy">
+        <strong>{{ 'Plan active' if is_premium_user else 'Upgrade' }}</strong>
+        <small>{{ 'Manage billing' if is_premium_user else 'Unlock Pro tools' }}</small>
+      </span>
+    </a>
+    <a class="quick-action-card" href="{{ url_for('main.download_recent_outputs_zip') }}">
+      <span class="quick-action-icon" data-icon-fallback="Z"><i class="bi bi-box-arrow-down"></i></span>
+      <span class="quick-action-copy">
+        <strong>Export ZIP</strong>
+        <small>Download recent outputs</small>
+      </span>
+    </a>
+    <a class="quick-action-card" href="{{ url_for('workspace.bulk_processing') }}">
+      <span class="quick-action-icon" data-icon-fallback="B"><i class="bi bi-stack"></i></span>
+      <span class="quick-action-copy">
+        <strong>Bulk Queue</strong>
+        <small>Batch process files</small>
+      </span>
+    </a>
   </div>
 </section>
 
-<section class="row g-3 mb-4">
-  <div class="col-md-6 col-xl-4">
-    <div class="metric-surface h-100">
-      <span>Total jobs</span>
-      <strong>{{ total_jobs }}</strong>
-      <div class="small text-secondary">Queued + completed + failed</div>
+<section class="dashboard-filter-surface mb-4">
+  <div class="section-heading-row">
+    <div>
+      <span class="eyebrow">Search + filter</span>
+      <h2 class="section-title">Find the right workflow quickly</h2>
     </div>
   </div>
-  <div class="col-md-6 col-xl-4">
-    <div class="metric-surface h-100">
-      <span>Files processed</span>
-      <strong>{{ completed_jobs }}</strong>
-      <div class="small text-secondary">Completed workflows</div>
-    </div>
-  </div>
-  <div class="col-md-6 col-xl-4">
-    <div class="metric-surface h-100">
-      <span>Active plan</span>
-      <strong>{{ active_subscription.plan_name if active_subscription else 'Free Tier' }}</strong>
-      <div class="small text-secondary">
-        {% if active_subscription %}
-        Valid till {{ active_subscription.expires_at.strftime('%d %b %Y') }}
-        {% else %}
-        Upgrade for full Pro access
-        {% endif %}
+  <form class="row g-3 align-items-end" method="get">
+    <div class="col-xl-6">
+      <label class="form-label" for="dashboardSearch">Search tools</label>
+      <div class="modern-input-wrap">
+        <i class="bi bi-search"></i>
+        <input class="form-control" id="dashboardSearch" type="search" name="q" value="{{ search }}" placeholder="Search merge, OCR, legal, student, invoice, scan...">
       </div>
     </div>
-  </div>
-</section>
-
-<section class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <div class="d-flex flex-wrap align-items-center gap-2">
-      <span class="small text-uppercase text-muted me-1">Quick actions</span>
-      <a class="btn btn-sm btn-primary" href="{{ url_for('tools.tool_detail', tool_key='merge_pdf') }}">Merge PDF</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tools.tool_detail', tool_key='compress_pdf') }}">Compress PDF</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tools.tool_detail', tool_key='images_to_pdf') }}">Image to PDF</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ billing_settings_url }}">Manage plan</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_recent_outputs_zip') }}">Download all outputs (.zip)</a>
-    </div>
-  </div>
-</section>
-
-<section class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <form class="row g-3 align-items-end" method="get">
-      <div class="col-lg-6">
-        <label class="form-label">Search inside main icons</label>
-        <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Search merge, scan, OCR, legal, student, invoice...">
-      </div>
-      <div class="col-lg-4">
-        <label class="form-label">Category</label>
-        <select class="form-select" name="category">
+    <div class="col-xl-4">
+      <label class="form-label" for="dashboardCategory">Category</label>
+      <div class="modern-input-wrap is-select">
+        <i class="bi bi-sliders2"></i>
+        <select class="form-select" id="dashboardCategory" name="category">
           <option value="">All categories</option>
           {% for category in tool_categories %}
           <option value="{{ category }}" {{ 'selected' if active_category == category else '' }}>{{ category }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-lg-2">
-        <button class="btn btn-primary w-100">Filter</button>
-      </div>
-    </form>
-  </div>
+    </div>
+    <div class="col-xl-2">
+      <button class="btn btn-primary w-100 dashboard-filter-btn">
+        <i class="bi bi-funnel me-1"></i>Apply
+      </button>
+    </div>
+  </form>
 </section>
 
 {% if essential_tools %}
 <section class="mb-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="section-heading-row">
     <div>
-      <span class="eyebrow">Top 10 Essential</span>
-      <h2 class="h3 mb-0">Core PDF tools</h2>
+      <span class="eyebrow">Essential tools</span>
+      <h2 class="section-title">The core workflows most users start with</h2>
     </div>
-    <div class="text-secondary small">Built for daily workflows</div>
+    <span class="section-counter">{{ essential_tools|length }} highlighted</span>
   </div>
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-3">
     {% for item in essential_tools %}
     <div class="col">
-      <div class="card essential-tool-card border-0 shadow-sm h-100">
-        <div class="card-body d-flex flex-column">
-          <div class="d-flex justify-content-between align-items-start mb-3">
-            <a class="tool-icon text-decoration-none" href="{{ url_for('tools.tool_detail', tool_key=item.tool.tool_key) }}">
-              <i class="bi {{ item.icon_name }}"></i>
-            </a>
-            {% if item.is_pro %}
-            <span class="essential-lock" title="Pro feature"><i class="bi bi-lock-fill"></i></span>
-            {% endif %}
-          </div>
-          <h3 class="h6 mb-2">{{ item.tool.name }}</h3>
-          <p class="text-secondary small mb-3">{{ item.short_description }}</p>
-          <div class="mt-auto d-flex justify-content-between align-items-center">
-            {% if item.is_pro %}
-            <span class="pro-badge"><i class="bi bi-gem me-1"></i>PRO</span>
-            {% else %}
-            <span class="tool-status-badge">FREE</span>
-            {% endif %}
-            {% set essential_action_url = billing_settings_url if item.premium_locked else url_for('tools.tool_detail', tool_key=item.tool.tool_key) %}
-            <a class="btn btn-primary btn-sm" href="{{ essential_action_url }}" {{ 'data-billing-redirect' if item.premium_locked else '' }}>
-              {{ 'Unlock Pro' if item.premium_locked else 'Open' }}
-            </a>
-          </div>
+      <article class="essential-tool-card h-100">
+        <div class="essential-tool-top">
+          <span class="tool-icon essential-tool-icon" data-icon-fallback="{{ (item.tool.name or 'T')[0]|upper }}"><i class="bi {{ item.icon_name }}"></i></span>
+          {% if item.is_pro %}
+          <span class="essential-lock" title="Pro feature"><i class="bi bi-lock-fill"></i></span>
+          {% endif %}
         </div>
-      </div>
+        <h3 class="h6 mb-2">{{ item.tool.name }}</h3>
+        <p class="text-secondary small mb-3">{{ item.short_description }}</p>
+        <div class="mt-auto d-flex justify-content-between align-items-center gap-2">
+          {% if item.is_pro %}
+          <span class="pro-badge"><i class="bi bi-gem me-1"></i>Pro</span>
+          {% else %}
+          <span class="tool-status-badge">{{ item.access_label }}</span>
+          {% endif %}
+          {% set essential_action_url = billing_settings_url if item.premium_locked else url_for('tools.tool_detail', tool_key=item.tool.tool_key) %}
+          <a class="btn btn-primary btn-sm" href="{{ essential_action_url }}" {{ 'data-billing-redirect' if item.premium_locked else '' }}>
+            {{ 'Unlock' if item.premium_locked else 'Open' }}
+          </a>
+        </div>
+      </article>
     </div>
     {% endfor %}
   </div>
@@ -121,21 +229,21 @@
 {% endif %}
 
 <section class="mb-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="section-heading-row">
     <div>
-      <span class="eyebrow">Main Icons</span>
-      <h2 class="h3 mb-0">Open a main icon to see related tools</h2>
+      <span class="eyebrow">Tool collections</span>
+      <h2 class="section-title">Open a main icon and move through related tools</h2>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="text-secondary small">{{ tools|length }} tools matched</span>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.all_tools') }}">Open full catalog</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="section-counter">{{ tools|length }} matched</span>
+      <a class="section-link" href="{{ url_for('main.all_tools') }}">Browse all tools</a>
     </div>
   </div>
   {% if main_tool_hubs %}
   <div class="vstack gap-3">
     {% for hub in main_tool_hubs %}
     {% set collapse_id = "dashboard-hub-" ~ loop.index %}
-    <div class="card border-0 shadow-sm main-hub-card">
+    <article class="main-hub-card premium-hub-card">
       <button
         class="main-hub-trigger d-flex align-items-center gap-3 w-100 text-start border-0"
         type="button"
@@ -144,7 +252,7 @@
         aria-expanded="{{ 'true' if loop.first else 'false' }}"
         aria-controls="{{ collapse_id }}"
       >
-        <span class="tool-icon flex-shrink-0"><i class="bi {{ hub.icon_name }}"></i></span>
+        <span class="tool-icon flex-shrink-0" data-icon-fallback="{{ (hub.title or 'T')[0]|upper }}"><i class="bi {{ hub.icon_name }}"></i></span>
         <span class="flex-grow-1">
           <span class="main-hub-title">{{ hub.title }}</span>
           <span class="main-hub-desc">{{ hub.description }}</span>
@@ -165,88 +273,96 @@
           {% endfor %}
         </div>
       </div>
-    </div>
+    </article>
     {% endfor %}
   </div>
   {% else %}
   <div class="card border-0 shadow-sm">
     <div class="card-body text-secondary">
-      No tools matched this filter. Try clearing search/category.
+      No tools matched this filter. Try clearing search or choosing another category.
     </div>
   </div>
   {% endif %}
 </section>
 
 {% if premium_tools and not is_premium_user %}
-<section class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <span class="eyebrow">Pro tools</span>
-        <h3 class="h5 mb-0">Upgrade to unlock these workflows</h3>
-      </div>
-    </div>
+<section class="premium-callout-band mb-4">
+  <div>
+    <span class="eyebrow">Pro tools</span>
+    <h3 class="h5 mb-1">Premium workflows waiting in your catalog</h3>
+    <p class="text-secondary mb-0">Unlock advanced PDF, OCR, editing, and AI-powered tools from one upgrade panel.</p>
+  </div>
+  <div class="premium-callout-actions">
     <div class="d-flex flex-wrap gap-2">
       {% for tool in premium_tools %}
-      <a class="badge rounded-pill text-bg-light text-decoration-none" href="{{ url_for('tools.tool_detail', tool_key=tool.tool_key) }}">
-        <i class="bi bi-gem me-1"></i>{{ tool.name }}
-      </a>
+      <span class="premium-tool-pill"><i class="bi bi-gem me-1"></i>{{ tool.name }}</span>
       {% endfor %}
     </div>
+    <a class="btn btn-primary" href="{{ billing_settings_url }}">Upgrade now</a>
   </div>
 </section>
 {% endif %}
 
 <section class="row g-4">
   <div class="col-xl-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">Recent jobs</h3>
-          <span class="text-muted small">Queue + status</span>
+    <div class="dashboard-panel h-100">
+      <div class="dashboard-panel-head">
+        <div>
+          <span class="panel-kicker">Queue</span>
+          <h3 class="panel-title">Recent jobs</h3>
         </div>
-        <div class="vstack gap-3">
-          {% for job in recent_jobs %}
-            {% include 'partials/job_status.html' %}
-          {% else %}
-          <div class="text-secondary">No jobs yet.</div>
-          {% endfor %}
-        </div>
+        <span class="section-counter">{{ recent_jobs|length }}</span>
+      </div>
+      <div class="vstack gap-3">
+        {% for job in recent_jobs %}
+          {% include 'partials/job_status.html' %}
+        {% else %}
+        <div class="text-secondary">No jobs yet.</div>
+        {% endfor %}
       </div>
     </div>
   </div>
   <div class="col-xl-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h3 class="h5 mb-0">Download center</h3>
-          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_recent_outputs_zip') }}">All as ZIP</a>
+    <div class="dashboard-panel h-100">
+      <div class="dashboard-panel-head">
+        <div>
+          <span class="panel-kicker">Outputs</span>
+          <h3 class="panel-title">Download center</h3>
         </div>
-        <div class="list-group list-group-flush">
-          {% for file in output_files %}
-          <div class="list-group-item px-0 download-item">
-            <div class="download-item-main">
-              <div class="fw-medium download-item-name">{{ file.original_name }}</div>
-              <div class="small text-muted">{{ file.created_at.strftime('%d %b %Y %H:%M') }}</div>
-            </div>
-            <div class="download-item-actions">
-              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.preview_file', file_id=file.id) }}">Preview</a>
-              <a class="btn btn-sm btn-primary" href="{{ url_for('main.download_file', file_id=file.id) }}">Download</a>
-            </div>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_recent_outputs_zip') }}">All as ZIP</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for file in output_files %}
+        <div class="list-group-item px-0 download-item">
+          <div class="download-item-main">
+            <div class="fw-medium download-item-name">{{ file.original_name }}</div>
+            <div class="small text-muted">{{ file.created_at.strftime('%d %b %Y %H:%M') }}</div>
           </div>
-          {% else %}
-          <div class="text-secondary">Processed files will appear here.</div>
-          {% endfor %}
+          <div class="download-item-actions">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.preview_file', file_id=file.id) }}">Preview</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('main.download_file', file_id=file.id) }}">Download</a>
+          </div>
         </div>
+        {% else %}
+        <div class="text-secondary">Processed files will appear here.</div>
+        {% endfor %}
       </div>
     </div>
   </div>
   <div class="col-xl-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <h3 class="h5 mb-3">Cloud storage + favorites</h3>
-        <div class="mb-4">
-          <div class="small text-uppercase text-muted mb-2">Cloud files</div>
+    <div class="dashboard-panel h-100">
+      <div class="dashboard-panel-head">
+        <div>
+          <span class="panel-kicker">Storage</span>
+          <h3 class="panel-title">Cloud + favorites</h3>
+        </div>
+      </div>
+      <div class="dashboard-side-stack">
+        <section class="dashboard-side-card">
+          <div class="dashboard-side-head">
+            <span class="dashboard-side-label">Cloud files</span>
+            <span class="section-counter">{{ cloud_files|length }}</span>
+          </div>
           <div class="vstack gap-2">
             {% for file in cloud_files %}
             <div class="d-flex justify-content-between align-items-center gap-2">
@@ -257,17 +373,20 @@
             <div class="text-secondary">No cloud files yet.</div>
             {% endfor %}
           </div>
-        </div>
-        <div>
-          <div class="small text-uppercase text-muted mb-2">Recently used tools</div>
+        </section>
+        <section class="dashboard-side-card">
+          <div class="dashboard-side-head">
+            <span class="dashboard-side-label">Recently used tools</span>
+            <span class="section-counter">{{ recent_tools|length }}</span>
+          </div>
           <div class="d-flex flex-wrap gap-2">
             {% for tool in recent_tools %}
-            <a class="badge rounded-pill text-bg-light text-decoration-none" href="{{ url_for('tools.tool_detail', tool_key=tool.tool_key) }}">{{ tool.name }}</a>
+            <a class="dashboard-tag" href="{{ url_for('tools.tool_detail', tool_key=tool.tool_key) }}">{{ tool.name }}</a>
             {% else %}
             <span class="text-secondary">Your activity will appear after the first job.</span>
             {% endfor %}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>

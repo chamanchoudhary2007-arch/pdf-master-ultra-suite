@@ -1,72 +1,450 @@
 from __future__ import annotations
 
 import secrets
+import string
+import re
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from html import escape
-from urllib.parse import urljoin, urlparse
 
 import pytz
 from flask import abort, current_app, request, session
 from flask_login import current_user
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    from email_validator import EmailNotValidError, validate_email
+except Exception:  # pragma: no cover - optional dependency fallback
+    EmailNotValidError = ValueError
+    validate_email = None
+
 from app.extensions import db
-from app.models import (
-    ActivityLog,
-    EmailOTPChallenge,
-    PasswordResetToken,
-    User,
-    UserSubscription,
-    generate_referral_code,
-    utcnow,
-)
-from app.services.mail_service import MailService, OTPRequestError
+from app.models import ActivityLog, User, UserSubscription, generate_referral_code, utcnow
 
 
 class AuthService:
-    OTP_PURPOSE_SIGNUP = "signup"
-    OTP_PURPOSE_LOGIN = "login"
     REFERRAL_REWARD_STEP = 2
     REFERRAL_REWARD_DAYS = 1
     IST_TZ = pytz.timezone("Asia/Kolkata")
+    PASSWORD_RESET_KEY_LENGTH = 4
+    PASSWORD_RESET_ICON_CHOICES = (
+        "bi-key-fill",
+        "bi-shield-lock-fill",
+        "bi-safe2-fill",
+        "bi-fingerprint",
+        "bi-stars",
+        "bi-lock-fill",
+    )
+    EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+    DISPOSABLE_EMAIL_DOMAINS = {
+        "mailinator.com",
+        "10minutemail.com",
+        "guerrillamail.com",
+        "tempmail.com",
+        "yopmail.com",
+        "trashmail.com",
+    }
+    ROLE_LEVELS = {
+        "user": 0,
+        "support": 1,
+        "admin": 2,
+        "owner": 3,
+    }
+    ADMIN_PORTAL_ROLES = {"support", "admin", "owner"}
 
     @staticmethod
     def _normalize_email(email: str) -> str:
         return (email or "").strip().lower()
 
     @staticmethod
-    def _admin_email_allowlist() -> set[str]:
-        allowlist: set[str] = set()
-        csv_values = (
-            current_app.config.get("ADMIN_ALLOWED_EMAILS", ""),
+    def _validate_email_address(email: str) -> str:
+        normalized_email = AuthService._normalize_email(email)
+        if not normalized_email:
+            raise ValueError("Email is required.")
+        if len(normalized_email) > 255 or " " in normalized_email or ".." in normalized_email:
+            raise ValueError("Please enter a valid email address.")
+        if not AuthService.EMAIL_PATTERN.fullmatch(normalized_email):
+            raise ValueError("Please enter a valid email address.")
+        email_parts = normalized_email.rsplit("@", 1)
+        if len(email_parts) != 2:
+            raise ValueError("Please enter a valid email address.")
+        domain = email_parts[1]
+        if domain in AuthService.DISPOSABLE_EMAIL_DOMAINS:
+            raise ValueError("Disposable email domains are not allowed. Use your real email address.")
+        if validate_email:
+            try:
+                check_deliverability = bool(current_app.config.get("CHECK_EMAIL_DELIVERABILITY", True))
+                result = validate_email(normalized_email, check_deliverability=check_deliverability)
+                normalized_email = AuthService._normalize_email(result.normalized)
+            except EmailNotValidError as exc:
+                raise ValueError("Please enter a valid reachable email address.") from exc
+        return normalized_email
+
+    @staticmethod
+    def validate_email_address(email: str) -> str:
+        return AuthService._validate_email_address(email)
+
+    @staticmethod
+    def _role_email_allowlists() -> dict[str, set[str]]:
+        owner_emails: set[str] = set()
+        admin_emails: set[str] = set()
+        support_emails: set[str] = set()
+
+        owner_values = (
+            current_app.config.get("ADMIN_OWNER_EMAILS", ""),
         )
-        single_values = (
+        admin_values = (
+            current_app.config.get("ADMIN_ALLOWED_EMAILS", ""),
             current_app.config.get("ADMIN_EMAIL", ""),
             current_app.config.get("ADMIN_SEED_EMAIL", ""),
-            "pdfmasterultrasuite@gmail.com",
         )
-        for value in single_values:
-            normalized = AuthService._normalize_email(str(value or ""))
-            if normalized:
-                allowlist.add(normalized)
-        for raw_csv in csv_values:
-            for item in str(raw_csv or "").split(","):
+        support_values = (
+            current_app.config.get("ADMIN_SUPPORT_EMAILS", ""),
+        )
+
+        for raw_value in owner_values:
+            for item in str(raw_value or "").split(","):
                 normalized = AuthService._normalize_email(item)
                 if normalized:
-                    allowlist.add(normalized)
-        return allowlist
+                    owner_emails.add(normalized)
+
+        for raw_value in admin_values:
+            for item in str(raw_value or "").split(","):
+                normalized = AuthService._normalize_email(item)
+                if normalized:
+                    admin_emails.add(normalized)
+
+        for raw_value in support_values:
+            for item in str(raw_value or "").split(","):
+                normalized = AuthService._normalize_email(item)
+                if normalized:
+                    support_emails.add(normalized)
+
+        # Higher privileged lists are implicitly valid for lower gates.
+        admin_emails.update(owner_emails)
+        support_emails.update(admin_emails)
+
+        return {
+            "owner": owner_emails,
+            "admin": admin_emails,
+            "support": support_emails,
+        }
+
+    @staticmethod
+    def _normalize_role(role: str | None) -> str:
+        candidate = (role or "").strip().lower()
+        if candidate in AuthService.ROLE_LEVELS:
+            return candidate
+        return "user"
+
+    @staticmethod
+    def _validate_password_strength(password: str) -> None:
+        value = (password or "").strip()
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if value.isalpha() or value.isdigit():
+            raise ValueError("Password must include both letters and numbers.")
+
+    @staticmethod
+    def password_reset_icon_choices() -> tuple[str, ...]:
+        return AuthService.PASSWORD_RESET_ICON_CHOICES
+
+    @staticmethod
+    def _is_valid_reset_icon(icon_name: str | None) -> bool:
+        return (icon_name or "").strip() in AuthService.PASSWORD_RESET_ICON_CHOICES
+
+    @staticmethod
+    def is_valid_password_reset_icon(icon_name: str | None) -> bool:
+        return AuthService._is_valid_reset_icon(icon_name)
+
+    @staticmethod
+    def _default_reset_icon() -> str:
+        return secrets.choice(AuthService.PASSWORD_RESET_ICON_CHOICES)
+
+    @staticmethod
+    def _normalize_password_reset_key(reset_key: str) -> str:
+        return "".join(ch for ch in (reset_key or "").strip() if ch.isdigit())
+
+    @staticmethod
+    def generate_password_reset_key() -> str:
+        digits = string.digits
+        return "".join(secrets.choice(digits) for _ in range(AuthService.PASSWORD_RESET_KEY_LENGTH))
+
+    @staticmethod
+    def set_password_reset_key(
+        user: User,
+        reset_key: str,
+        *,
+        icon_name: str = "",
+        commit: bool = True,
+        log_activity: bool = True,
+    ) -> str:
+        if not user:
+            raise ValueError("User account is required.")
+        normalized_key = AuthService._normalize_password_reset_key(reset_key)
+        if len(normalized_key) != AuthService.PASSWORD_RESET_KEY_LENGTH:
+            raise ValueError("Password reset key must be exactly 4 digits.")
+
+        selected_icon = (icon_name or "").strip()
+        if not AuthService._is_valid_reset_icon(selected_icon):
+            selected_icon = (
+                user.password_reset_key_icon
+                if AuthService._is_valid_reset_icon(getattr(user, "password_reset_key_icon", ""))
+                else AuthService._default_reset_icon()
+            )
+
+        user.password_reset_key_hash = generate_password_hash(normalized_key)
+        user.password_reset_key_icon = selected_icon
+
+        if commit:
+            db.session.commit()
+        if log_activity:
+            AuthService._log_activity_safely(
+                user.id,
+                "user.password_reset_key.updated",
+                "user",
+                str(user.id),
+                details={"icon": selected_icon},
+            )
+        return normalized_key
+
+    @staticmethod
+    def ensure_password_reset_key(user: User, *, commit: bool = True) -> str:
+        if not user:
+            return ""
+        generated_key = ""
+        if not (user.password_reset_key_hash or "").strip():
+            generated_key = AuthService.generate_password_reset_key()
+            AuthService.set_password_reset_key(
+                user,
+                generated_key,
+                icon_name=user.password_reset_key_icon or AuthService._default_reset_icon(),
+                commit=False,
+                log_activity=False,
+            )
+        elif not AuthService._is_valid_reset_icon(user.password_reset_key_icon):
+            user.password_reset_key_icon = AuthService._default_reset_icon()
+
+        if commit and (generated_key or db.session.is_modified(user)):
+            db.session.commit()
+
+        if generated_key:
+            AuthService._log_activity_safely(
+                user.id,
+                "user.password_reset_key.generated",
+                "user",
+                str(user.id),
+                details={"icon": user.password_reset_key_icon},
+            )
+        return generated_key
+
+    @staticmethod
+    def verify_password_reset_key(user: User, reset_key: str) -> bool:
+        if not user or not (user.password_reset_key_hash or "").strip():
+            return False
+        normalized_key = AuthService._normalize_password_reset_key(reset_key)
+        if len(normalized_key) != AuthService.PASSWORD_RESET_KEY_LENGTH:
+            return False
+        return check_password_hash(user.password_reset_key_hash, normalized_key)
+
+    @staticmethod
+    def _password_reset_serializer() -> URLSafeTimedSerializer:
+        return URLSafeTimedSerializer(
+            str(current_app.config.get("SECRET_KEY") or ""),
+            salt="pdfmaster-password-reset-v1",
+        )
+
+    @staticmethod
+    def _email_verification_serializer() -> URLSafeTimedSerializer:
+        return URLSafeTimedSerializer(
+            str(current_app.config.get("SECRET_KEY") or ""),
+            salt="pdfmaster-email-verify-v1",
+        )
+
+    @staticmethod
+    def generate_email_verification_token(email: str) -> str:
+        normalized_email = AuthService._validate_email_address(email)
+        serializer = AuthService._email_verification_serializer()
+        return serializer.dumps(
+            {
+                "email": normalized_email,
+                "nonce": secrets.token_urlsafe(8),
+            }
+        )
+
+    @staticmethod
+    def resolve_user_from_email_verification_token(
+        token: str,
+        max_age_seconds: int,
+    ) -> User | None:
+        serializer = AuthService._email_verification_serializer()
+        try:
+            payload = serializer.loads((token or "").strip(), max_age=max_age_seconds)
+        except (BadSignature, SignatureExpired):
+            return None
+
+        normalized_email = AuthService._normalize_email(str(payload.get("email", "")))
+        if not normalized_email:
+            return None
+
+        user = User.query.filter_by(email=normalized_email).first()
+        if not user or not user.is_active:
+            return None
+        return user
+
+    @staticmethod
+    def mark_email_verified(user: User) -> None:
+        if not user:
+            raise ValueError("User account is required.")
+        changed = False
+        if not user.is_active:
+            raise ValueError("This account is disabled.")
+        if not user.is_verified:
+            user.is_verified = True
+            changed = True
+            if user.referred_by:
+                try:
+                    AuthService._apply_referral_reward(user, user.referred_by)
+                except Exception:
+                    current_app.logger.exception(
+                        "Referral reward apply failed during email verification. user_id=%s referred_by=%s",
+                        user.id,
+                        user.referred_by,
+                    )
+        if changed:
+            db.session.commit()
+            AuthService._log_activity_safely(
+                user.id,
+                "user.email.verified",
+                "user",
+                str(user.id),
+                details={"provider": "local"},
+            )
+
+    @staticmethod
+    def generate_password_reset_token(email: str) -> str:
+        normalized_email = AuthService._normalize_email(email)
+        if not normalized_email:
+            raise ValueError("Email is required.")
+        serializer = AuthService._password_reset_serializer()
+        return serializer.dumps(
+            {
+                "email": normalized_email,
+                "nonce": secrets.token_urlsafe(8),
+            }
+        )
+
+    @staticmethod
+    def resolve_user_from_password_reset_token(token: str, max_age_seconds: int) -> User | None:
+        serializer = AuthService._password_reset_serializer()
+        try:
+            payload = serializer.loads((token or "").strip(), max_age=max_age_seconds)
+        except (BadSignature, SignatureExpired):
+            return None
+
+        normalized_email = AuthService._normalize_email(str(payload.get("email", "")))
+        if not normalized_email:
+            return None
+
+        user = User.query.filter_by(email=normalized_email).first()
+        if not user or not user.is_active:
+            return None
+        return user
+
+    @staticmethod
+    def update_password(user: User, new_password: str) -> None:
+        if not user:
+            raise ValueError("User account is required.")
+        AuthService._validate_password_strength(new_password)
+        user.set_password(new_password)
+        user.is_verified = True
+        user.last_login_at = utcnow()
+        db.session.commit()
+        AuthService._log_activity_safely(
+            user.id,
+            "user.password.reset",
+            "user",
+            str(user.id),
+            details={"provider": "local"},
+        )
+
+    @staticmethod
+    def _normalize_full_name(full_name: str, email: str) -> str:
+        cleaned = (full_name or "").strip()
+        if cleaned:
+            return cleaned
+        return email.split("@", 1)[0]
 
     @staticmethod
     def is_admin_email(email: str | None) -> bool:
         normalized = AuthService._normalize_email(email or "")
-        return bool(normalized and normalized in AuthService._admin_email_allowlist())
+        if not normalized:
+            return False
+        allowlists = AuthService._role_email_allowlists()
+        return normalized in allowlists["admin"] or normalized in allowlists["owner"]
+
+    @staticmethod
+    def is_owner_email(email: str | None) -> bool:
+        normalized = AuthService._normalize_email(email or "")
+        if not normalized:
+            return False
+        return normalized in AuthService._role_email_allowlists()["owner"]
+
+    @staticmethod
+    def is_support_email(email: str | None) -> bool:
+        normalized = AuthService._normalize_email(email or "")
+        if not normalized:
+            return False
+        return normalized in AuthService._role_email_allowlists()["support"]
+
+    @staticmethod
+    def effective_portal_role(user: User | None) -> str:
+        if not user:
+            return "user"
+        role = AuthService._normalize_role(getattr(user, "role", "user"))
+        email = getattr(user, "email", "") or ""
+        if AuthService.is_owner_email(email):
+            return "owner"
+        if AuthService.is_admin_email(email):
+            if role in {"owner", "admin"}:
+                return role
+            return "admin"
+        if role in AuthService.ADMIN_PORTAL_ROLES:
+            return role
+        if AuthService.is_support_email(email):
+            return "support"
+        return role
+
+    @staticmethod
+    def has_admin_access(user: User | None, *, min_role: str = "support") -> bool:
+        if not user:
+            return False
+        required = AuthService.ROLE_LEVELS.get(AuthService._normalize_role(min_role), 1)
+        current = AuthService.ROLE_LEVELS.get(AuthService.effective_portal_role(user), 0)
+        return current >= required
+
+    @staticmethod
+    def can_access_admin_panel(user: User | None) -> bool:
+        return AuthService.has_admin_access(user, min_role="support")
+
+    @staticmethod
+    def sync_role_from_allowlists(user: User | None, *, commit: bool = True) -> str:
+        if not user:
+            return "user"
+        desired_role = AuthService.effective_portal_role(user)
+        if desired_role not in {"owner", "admin"}:
+            return desired_role
+        if AuthService._normalize_role(getattr(user, "role", "")) != desired_role:
+            user.role = desired_role
+            if commit:
+                db.session.commit()
+        return desired_role
 
     @staticmethod
     def should_grant_admin(user: User | None) -> bool:
         if not user:
             return False
-        return user.is_admin or AuthService.is_admin_email(user.email)
+        return AuthService.has_admin_access(user, min_role="admin")
 
     @staticmethod
     def _normalize_referral_code(referral_code: str | None) -> str:
@@ -89,8 +467,123 @@ class AuthService:
         return user.referral_code
 
     @staticmethod
-    def _generate_otp_code() -> str:
-        return f"{secrets.randbelow(1_000_000):06d}"
+    def create_local_user(
+        *,
+        full_name: str,
+        email: str,
+        password: str,
+        referral_code: str | None = None,
+    ) -> User:
+        normalized_email = AuthService._validate_email_address(email)
+        AuthService._validate_password_strength(password)
+
+        existing_user = User.query.filter_by(email=normalized_email).first()
+        if existing_user and existing_user.is_verified:
+            raise ValueError("An account with this email already exists.")
+        if existing_user and existing_user.google_id:
+            raise ValueError("This email is already linked with Google login. Use Google sign-in.")
+        if existing_user and existing_user.is_verified and not existing_user.is_active:
+            raise ValueError("This account is disabled.")
+
+        normalized_referral = AuthService._normalize_referral_code(referral_code)
+        if normalized_referral:
+            referrer = User.query.filter_by(referral_code=normalized_referral).first()
+            if not referrer:
+                raise ValueError("Referral code is invalid.")
+            if AuthService._normalize_email(referrer.email) == normalized_email:
+                raise ValueError("Self referral is not allowed.")
+
+        try:
+            created = False
+            if existing_user:
+                user = existing_user
+                user.full_name = AuthService._normalize_full_name(full_name, normalized_email)
+                user.set_password(password)
+                user.is_active = True
+                user.is_verified = False
+                user.last_login_at = None
+                user.password_reset_key_hash = ""
+                if not user.referred_by and normalized_referral:
+                    user.referred_by = normalized_referral
+            else:
+                user = User(
+                    full_name=AuthService._normalize_full_name(full_name, normalized_email),
+                    email=normalized_email,
+                    referral_code=AuthService._generate_unique_referral_code(),
+                    referred_by=normalized_referral or None,
+                    is_verified=False,
+                    is_active=True,
+                    last_login_at=None,
+                )
+                user.set_password(password)
+                db.session.add(user)
+                db.session.flush()
+                created = True
+
+            if AuthService.is_owner_email(user.email):
+                user.role = "owner"
+            elif AuthService.is_admin_email(user.email):
+                user.role = "admin"
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Local signup failed for %s", normalized_email)
+            raise
+
+        AuthService._log_activity_safely(
+            user.id,
+            "user.signup.local.pending",
+            "user",
+            str(user.id),
+            details={
+                "provider": "local",
+                "referred_by": normalized_referral or None,
+                "created": created,
+                "email_verified": False,
+            },
+        )
+        return user
+
+    @staticmethod
+    def authenticate_local_user(email: str, password: str) -> User:
+        normalized_email = AuthService._normalize_email(email)
+        user = User.query.filter_by(email=normalized_email).first()
+        if not user or not user.check_password(password):
+            raise ValueError("Invalid email or password.")
+        if not user.is_active:
+            AuthService._log_activity_safely(
+                user.id,
+                "user.login.blocked.disabled",
+                "user",
+                str(user.id),
+                details={"provider": "local"},
+            )
+            raise ValueError("This account is disabled.")
+        if not user.is_verified:
+            AuthService._log_activity_safely(
+                user.id,
+                "user.login.blocked.unverified",
+                "user",
+                str(user.id),
+                details={"provider": "local"},
+            )
+            raise ValueError("Please verify your email before login.")
+
+        AuthService.sync_role_from_allowlists(user, commit=False)
+        user.last_login_at = utcnow()
+        generated_key = AuthService.ensure_password_reset_key(user, commit=False)
+        db.session.commit()
+        if generated_key:
+            setattr(user, "generated_password_reset_key", generated_key)
+
+        AuthService._log_activity_safely(
+            user.id,
+            "user.login.local",
+            "user",
+            str(user.id),
+            details={"provider": "local"},
+        )
+        return user
 
     @staticmethod
     def _as_utc(dt: datetime | None) -> datetime:
@@ -194,215 +687,6 @@ class AuthService:
         db.session.add(log)
 
     @staticmethod
-    def _public_base_url() -> str:
-        configured_base = (current_app.config.get("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
-        if configured_base.lower().startswith(("https://", "http://")):
-            return configured_base
-        billing_url = (current_app.config.get("BILLING_SETTINGS_URL", "") or "").strip()
-        parsed = urlparse(billing_url)
-        if parsed.scheme and parsed.netloc:
-            return f"{parsed.scheme}://{parsed.netloc}"
-        return "https://pdf-master-ultra-suite.onrender.com"
-
-    @staticmethod
-    def _resolve_email_logo_url() -> str:
-        configured_logo = (current_app.config.get("EMAIL_LOGO_URL", "") or "").strip()
-        if configured_logo.lower().startswith(("https://", "http://")):
-            return configured_logo.replace(" ", "%20")
-        base_url = AuthService._public_base_url()
-        if configured_logo:
-            return urljoin(f"{base_url}/", configured_logo.lstrip("/")).replace(" ", "%20")
-        return f"{base_url}/static/images/logo.jpeg"
-
-    @staticmethod
-    def _send_otp_email(email: str, otp_code: str, purpose: str) -> None:
-        ttl_minutes = int(current_app.config["OTP_TTL_MINUTES"])
-        app_name = "PDFMaster Ultra Suite"
-        subject = "Your PDFMaster Verification Code (Valid for 2 minutes)"
-        body = (
-            f"{app_name}\n\n"
-            "Use the following verification code to confirm your email address.\n\n"
-            f"{otp_code}\n\n"
-            f"This code expires in {ttl_minutes} minutes.\n\n"
-            "For security reasons, never share this code with anyone.\n\n"
-            "If you did not request this email, you can safely ignore it."
-        )
-
-        try:
-            logo_src = escape(AuthService._resolve_email_logo_url(), quote=True)
-            logo_alt = escape(app_name, quote=True)
-            app_name_html = escape(app_name)
-            html = f"""
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
-    <style>
-      @media screen and (max-width: 560px) {{
-        .email-container {{
-          width: 100% !important;
-        }}
-        .content-cell {{
-          padding-left: 16px !important;
-          padding-right: 16px !important;
-        }}
-        .otp-code {{
-          font-size: 36px !important;
-          letter-spacing: 7px !important;
-        }}
-      }}
-      @media (prefers-color-scheme: dark) {{
-        .email-bg {{
-          background: #0b1220 !important;
-        }}
-        .card {{
-          background: #111a2c !important;
-          border-color: #28364d !important;
-        }}
-        .main-text {{
-          color: #f3f4f6 !important;
-        }}
-        .sub-text {{
-          color: #d1d5db !important;
-        }}
-        .otp-box {{
-          background: #10352a !important;
-          border-color: #1f6f57 !important;
-          color: #e8fff5 !important;
-        }}
-        .footer {{
-          color: #9ca3af !important;
-          border-color: #28364d !important;
-        }}
-      }}
-    </style>
-  </head>
-  <body style="margin:0;padding:0;background:#eef3f2;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-bg" style="background:#eef3f2;padding:16px 8px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="560" cellspacing="0" cellpadding="0" class="email-container card" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #dce7e3;border-radius:16px;overflow:hidden;">
-            <tr>
-              <td class="content-cell" style="padding:20px 20px 14px;text-align:center;border-bottom:1px solid #e8f0ed;">
-                <img src="{logo_src}" width="88" alt="{logo_alt}"
-                  style="display:block;margin:0 auto 10px auto;width:88px;max-width:88px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">
-                <div class="main-text" style="font-size:24px;line-height:1.2;font-weight:800;letter-spacing:0.2px;color:#113c30;">
-                  {app_name_html}
-                </div>
-                <div class="sub-text" style="font-size:13px;line-height:1.45;font-weight:600;color:#166b52;margin-top:4px;">
-                  Secure Verification Code
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="content-cell main-text" style="padding:16px 20px 8px;color:#1f2937;font-size:15px;line-height:1.6;text-align:center;">
-                Use the following verification code to confirm your email address.
-              </td>
-            </tr>
-            <tr>
-              <td class="content-cell" style="padding:10px 20px 8px;">
-                <div class="otp-box otp-code" style="background:#f2fbf7;border:1px solid #c8e0d7;border-radius:14px;padding:15px 10px;text-align:center;color:#0f3f31;font-weight:800;font-size:40px;letter-spacing:10px;line-height:1.1;">
-                  {escape(otp_code)}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="content-cell sub-text" style="padding:12px 20px 16px;color:#4b5563;font-size:13px;line-height:1.6;text-align:center;">
-                <div style="margin-bottom:6px;">This code expires in {ttl_minutes} minutes.</div>
-                <div style="margin-bottom:6px;">For security reasons, never share this code with anyone.</div>
-                <div>If you did not request this email, you can safely ignore it.</div>
-              </td>
-            </tr>
-            <tr>
-              <td class="content-cell footer" style="padding:12px 20px 16px;border-top:1px solid #e8f0ed;text-align:center;color:#6b7280;font-size:12px;line-height:1.5;">
-                <div>&copy; PDFMaster Ultra Suite</div>
-                <div>Secure document tools platform</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-"""
-        except Exception as exc:
-            current_app.logger.exception(
-                "OTP email template render failed. purpose=%s recipient=%s",
-                purpose,
-                MailService.mask_email(email),
-            )
-            raise OTPRequestError() from exc
-
-        MailService.send_email(
-            recipient=email,
-            subject=subject,
-            text_body=body,
-            html_body=html,
-            context=f"otp.{purpose}",
-        )
-
-    @staticmethod
-    def _issue_otp_challenge(email: str, purpose: str, payload: dict | None = None) -> EmailOTPChallenge:
-        otp_code = AuthService._generate_otp_code()
-        now = utcnow()
-        masked_email = MailService.mask_email(email)
-        try:
-            active_challenges = EmailOTPChallenge.query.filter(
-                EmailOTPChallenge.email == email,
-                EmailOTPChallenge.purpose == purpose,
-                EmailOTPChallenge.used_at.is_(None),
-            ).all()
-            for challenge in active_challenges:
-                challenge.used_at = now
-
-            challenge = EmailOTPChallenge(
-                purpose=purpose,
-                email=email,
-                token=secrets.token_urlsafe(42),
-                otp_hash=generate_password_hash(otp_code),
-                payload_json=payload or {},
-                expires_at=now + timedelta(minutes=int(current_app.config["OTP_TTL_MINUTES"])),
-                max_attempts=int(current_app.config["OTP_MAX_ATTEMPTS"]),
-                attempt_count=0,
-            )
-            db.session.add(challenge)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            current_app.logger.exception(
-                "OTP DB/session save failed. purpose=%s recipient=%s",
-                purpose,
-                masked_email,
-            )
-            raise OTPRequestError() from None
-
-        current_app.logger.info(
-            "OTP challenge saved. challenge_id=%s purpose=%s recipient=%s",
-            challenge.id,
-            purpose,
-            masked_email,
-        )
-
-        try:
-            AuthService._send_otp_email(email, otp_code, purpose)
-        except OTPRequestError:
-            raise
-        except Exception as exc:
-            current_app.logger.exception(
-                "Unexpected OTP delivery failure. challenge_id=%s purpose=%s recipient=%s",
-                challenge.id,
-                purpose,
-                masked_email,
-            )
-            raise OTPRequestError() from exc
-
-        return challenge
-
-    @staticmethod
     def _log_activity_safely(
         user_id: int | None,
         action: str,
@@ -428,223 +712,120 @@ class AuthService:
             )
 
     @staticmethod
-    def start_signup_otp(
-        full_name: str,
+    def upsert_google_user(
+        *,
         email: str,
-        password: str,
+        full_name: str = "",
+        google_id: str = "",
+        profile_picture: str = "",
+        email_verified: bool | None = None,
         referral_code: str | None = None,
-    ) -> EmailOTPChallenge:
+    ) -> tuple[User, bool]:
         normalized_email = AuthService._normalize_email(email)
         cleaned_name = (full_name or "").strip()
-        if not cleaned_name:
-            raise ValueError("Full name is required.")
-        if len(cleaned_name) < 2:
-            raise ValueError("Full name must be at least 2 characters.")
+        normalized_google_id = (google_id or "").strip()
+        normalized_profile_picture = (profile_picture or "").strip()
         if not normalized_email:
-            raise ValueError("Email is required.")
-        if User.query.filter_by(email=normalized_email).first():
-            raise ValueError("An account with that email already exists.")
-        raw_password = (password or "").strip()
-        if len(raw_password) < 8:
-            raise ValueError("Password must be at least 8 characters.")
+            raise ValueError("Google account email is unavailable.")
+        if email_verified is not True:
+            raise ValueError("Google account email is not verified.")
+
         normalized_referral = AuthService._normalize_referral_code(referral_code)
         if normalized_referral:
             referrer = User.query.filter_by(referral_code=normalized_referral).first()
             if not referrer:
-                raise ValueError("Referral code is invalid.")
-            if AuthService._normalize_email(referrer.email) == normalized_email:
-                raise ValueError("You cannot use your own referral code.")
+                current_app.logger.warning(
+                    "Ignoring unknown referral code during Google sign-in. referral_code=%s email=%s",
+                    normalized_referral,
+                    normalized_email,
+                )
+                normalized_referral = ""
+            elif AuthService._normalize_email(referrer.email) == normalized_email:
+                current_app.logger.warning(
+                    "Ignoring self-referral during Google sign-in. referral_code=%s email=%s",
+                    normalized_referral,
+                    normalized_email,
+                )
+                normalized_referral = ""
 
-        payload = {
-            "full_name": cleaned_name,
-            "password_hash": generate_password_hash(raw_password),
-            "referral_code": normalized_referral,
-        }
-        challenge = AuthService._issue_otp_challenge(
-            email=normalized_email,
-            purpose=AuthService.OTP_PURPOSE_SIGNUP,
-            payload=payload,
-        )
-        AuthService._log_activity_safely(None, "otp.signup.sent", "email", normalized_email)
-        return challenge
-
-    @staticmethod
-    def start_login_otp(email: str) -> EmailOTPChallenge:
-        normalized_email = AuthService._normalize_email(email)
-        user = User.query.filter_by(email=normalized_email).first()
+        user = None
+        if normalized_google_id:
+            user = User.query.filter_by(google_id=normalized_google_id).first()
         if not user:
-            raise ValueError("No account found for that email.")
-        if not user.is_active:
-            raise ValueError("This account is disabled.")
+            user = User.query.filter_by(email=normalized_email).first()
+        created = False
+        generated_key = ""
+        try:
+            if user:
+                if not user.is_active:
+                    raise ValueError("This account is disabled.")
+                if cleaned_name and not user.full_name:
+                    user.full_name = cleaned_name
+                if normalized_google_id and user.google_id != normalized_google_id:
+                    user.google_id = normalized_google_id
+                if normalized_profile_picture:
+                    user.profile_picture = normalized_profile_picture
+            else:
+                user = User(
+                    full_name=cleaned_name or normalized_email.split("@", 1)[0],
+                    email=normalized_email,
+                    google_id=normalized_google_id or None,
+                    profile_picture=normalized_profile_picture,
+                    referral_code=AuthService._generate_unique_referral_code(),
+                    referred_by=normalized_referral or None,
+                    is_verified=True,
+                    is_active=True,
+                    last_login_at=utcnow(),
+                )
+                user.set_password(secrets.token_urlsafe(24))
+                generated_key = AuthService.generate_password_reset_key()
+                AuthService.set_password_reset_key(
+                    user,
+                    generated_key,
+                    icon_name=AuthService._default_reset_icon(),
+                    commit=False,
+                    log_activity=False,
+                )
+                if AuthService.is_owner_email(user.email):
+                    user.role = "owner"
+                elif AuthService.is_admin_email(user.email):
+                    user.role = "admin"
+                db.session.add(user)
+                db.session.flush()
+                if normalized_referral:
+                    AuthService._apply_referral_reward(user, normalized_referral)
+                created = True
 
-        challenge = AuthService._issue_otp_challenge(
-            email=normalized_email,
-            purpose=AuthService.OTP_PURPOSE_LOGIN,
-            payload={"user_id": user.id},
-        )
-        AuthService._log_activity_safely(user.id, "otp.login.sent", "user", str(user.id))
-        return challenge
-
-    @staticmethod
-    def get_active_otp_challenge(token: str, purpose: str) -> EmailOTPChallenge:
-        challenge = EmailOTPChallenge.query.filter_by(
-            token=(token or "").strip(),
-            purpose=(purpose or "").strip().lower(),
-        ).first()
-        if not challenge:
-            raise ValueError("OTP session not found.")
-        if challenge.used_at:
-            raise ValueError("OTP session already used. Request a new OTP.")
-        if AuthService._as_utc(challenge.expires_at) <= utcnow():
-            challenge.used_at = utcnow()
-            db.session.commit()
-            raise ValueError("OTP expired. Request a new OTP.")
-        if challenge.attempt_count >= challenge.max_attempts:
-            challenge.used_at = utcnow()
-            db.session.commit()
-            raise ValueError("Maximum OTP attempts exceeded. Request a new OTP.")
-        return challenge
-
-    @staticmethod
-    def verify_otp(token: str, purpose: str, otp_input: str) -> User:
-        challenge = AuthService.get_active_otp_challenge(token, purpose)
-        otp_code = (otp_input or "").strip()
-        if not otp_code.isdigit() or len(otp_code) != 6:
-            raise ValueError("Enter a valid 6-digit OTP.")
-        if not check_password_hash(challenge.otp_hash, otp_code):
-            challenge.attempt_count += 1
-            remaining = max(0, challenge.max_attempts - challenge.attempt_count)
-            if challenge.attempt_count >= challenge.max_attempts:
-                challenge.used_at = utcnow()
-            db.session.commit()
-            if remaining <= 0:
-                raise ValueError("OTP is incorrect. Maximum attempts reached.")
-            raise ValueError(f"OTP is incorrect. {remaining} attempt(s) remaining.")
-
-        purpose_key = challenge.purpose
-        if purpose_key == AuthService.OTP_PURPOSE_SIGNUP:
-            if User.query.filter_by(email=challenge.email).first():
-                challenge.used_at = utcnow()
-                db.session.commit()
-                raise ValueError("An account with this email already exists. Please login.")
-            payload = challenge.payload_json or {}
-            full_name = (payload.get("full_name") or "").strip()
-            password_hash = (payload.get("password_hash") or "").strip()
-            if not full_name or not password_hash:
-                challenge.used_at = utcnow()
-                db.session.commit()
-                raise ValueError("Signup session is invalid. Please try again.")
-            user = User(
-                full_name=full_name,
-                email=challenge.email,
-                password_hash=password_hash,
-                referral_code=AuthService._generate_unique_referral_code(),
-                referred_by=(payload.get("referral_code") or "").strip() or None,
-                is_verified=True,
-                is_active=True,
-                last_login_at=utcnow(),
-            )
-            if AuthService.is_admin_email(user.email):
-                user.role = "admin"
-            db.session.add(user)
-            db.session.flush()
-            AuthService._apply_referral_reward(user, payload.get("referral_code"))
-            challenge.used_at = utcnow()
-            db.session.commit()
-            AuthService._log_activity_safely(
-                user.id,
-                "user.signup.otp_verified",
-                "user",
-                str(user.id),
-            )
-            return user
-
-        if purpose_key == AuthService.OTP_PURPOSE_LOGIN:
-            user_id = int((challenge.payload_json or {}).get("user_id") or 0)
-            user = db.session.get(User, user_id)
-            if not user:
-                challenge.used_at = utcnow()
-                db.session.commit()
-                raise ValueError("User not found for this OTP session.")
-            if not user.is_active:
-                challenge.used_at = utcnow()
-                db.session.commit()
-                raise ValueError("This account is disabled.")
-            if AuthService.is_admin_email(user.email) and user.role != "admin":
-                user.role = "admin"
+            AuthService.sync_role_from_allowlists(user, commit=False)
             user.last_login_at = utcnow()
             if not user.is_verified:
                 user.is_verified = True
-            challenge.used_at = utcnow()
+            if not generated_key:
+                generated_key = AuthService.ensure_password_reset_key(user, commit=False)
             db.session.commit()
-            AuthService._log_activity_safely(
-                user.id,
-                "user.login.otp_verified",
-                "user",
-                str(user.id),
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception(
+                "Google user sync failed for %s",
+                normalized_email,
             )
-            return user
+            raise
 
-        challenge.used_at = utcnow()
-        db.session.commit()
-        raise ValueError("Unsupported OTP session.")
-
-    @staticmethod
-    def register_user(full_name: str, email: str, password: str) -> User:
-        email = AuthService._normalize_email(email)
-        if User.query.filter_by(email=email).first():
-            raise ValueError("An account with that email already exists.")
-        user = User(full_name=full_name.strip(), email=email)
-        user.referral_code = AuthService._generate_unique_referral_code()
-        if AuthService.is_admin_email(email):
-            user.role = "admin"
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        AuthService.log_activity(user.id, "user.signup", "user", str(user.id))
-        return user
-
-    @staticmethod
-    def authenticate(email: str, password: str) -> User:
-        user = User.query.filter_by(email=AuthService._normalize_email(email)).first()
-        if not user or not user.check_password(password):
-            raise ValueError("Invalid email or password.")
-        if not user.is_active:
-            raise ValueError("This account is disabled.")
-        if AuthService.is_admin_email(user.email) and user.role != "admin":
-            user.role = "admin"
-        user.last_login_at = utcnow()
-        db.session.commit()
-        AuthService.log_activity(user.id, "user.login", "user", str(user.id))
-        return user
-
-    @staticmethod
-    def create_reset_token(email: str) -> PasswordResetToken:
-        user = User.query.filter_by(email=AuthService._normalize_email(email)).first()
-        if not user:
-            raise ValueError("No user found for that email.")
-        token = PasswordResetToken(
-            user_id=user.id,
-            token=secrets.token_urlsafe(32),
-            expires_at=utcnow()
-            + timedelta(minutes=current_app.config["PASSWORD_RESET_TTL_MINUTES"]),
+        AuthService._log_activity_safely(
+            user.id,
+            "user.signup.google" if created else "user.login.google",
+            "user",
+            str(user.id),
+            details={
+                "provider": "google",
+                "created": created,
+                "google_id": normalized_google_id or None,
+                "referred_by": normalized_referral or None,
+            },
         )
-        db.session.add(token)
-        db.session.commit()
-        AuthService.log_activity(user.id, "password.reset.requested", "user", str(user.id))
-        return token
-
-    @staticmethod
-    def reset_password(token_value: str, new_password: str) -> User:
-        token = PasswordResetToken.query.filter_by(token=token_value).first()
-        if not token or token.used_at or AuthService._as_utc(token.expires_at) < utcnow():
-            raise ValueError("Password reset link is invalid or expired.")
-        user = token.user
-        user.set_password(new_password)
-        token.used_at = utcnow()
-        db.session.commit()
-        AuthService.log_activity(user.id, "password.reset.completed", "user", str(user.id))
-        return user
+        if generated_key:
+            setattr(user, "generated_password_reset_key", generated_key)
+        return user, created
 
     @staticmethod
     def log_activity(
@@ -667,19 +848,21 @@ class AuthService:
         db.session.commit()
 
 
-def admin_required(view_func):
-    @wraps(view_func)
-    def wrapper(*args, **kwargs):
-        if not current_user.is_authenticated:
-            abort(401)
-        env_admin = AuthService.is_admin_email(getattr(current_user, "email", ""))
-        session_admin = bool(session.get("is_admin_session"))
-        if env_admin and not current_user.is_admin:
-            current_user.role = "admin"
-            db.session.commit()
-        if not (current_user.is_admin or env_admin or session_admin):
-            abort(403)
-        session["is_admin_session"] = True
-        return view_func(*args, **kwargs)
+def admin_required(view_func=None, *, min_role: str = "admin"):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if not current_user.is_authenticated:
+                abort(401)
+            role = AuthService.sync_role_from_allowlists(current_user, commit=True)
+            if not AuthService.has_admin_access(current_user, min_role=min_role):
+                abort(403)
+            session["is_admin_session"] = True
+            session["admin_role"] = role
+            return func(*args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    if view_func is None:
+        return decorator
+    return decorator(view_func)

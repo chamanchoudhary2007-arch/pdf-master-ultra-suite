@@ -4,7 +4,15 @@
 <section class="mb-4">
   {% set is_paid_tool = tool.is_subscription_only or ((tool.price_paise or 0) > 0 and tool.is_payperuse_allowed) %}
   <div class="tool-hero">
-    <div>
+    <div class="tool-hero-main">
+      <a
+        class="btn btn-sm btn-outline-secondary tool-back-btn"
+        href="{{ url_for('main.all_tools') }}"
+        data-history-back
+        data-back-fallback="{{ url_for('main.all_tools') }}"
+      >
+        <i class="bi bi-arrow-left"></i>Back
+      </a>
       <span class="eyebrow">{{ tool.category }}</span>
       <h1 class="h2 mb-2">{{ tool.name }}</h1>
       <p class="text-secondary mb-0">{{ tool.description }}</p>
@@ -48,6 +56,9 @@
             <li>Set required options, then click process.</li>
             <li>Track status in Recent jobs and download result from Recent outputs.</li>
           </ol>
+          <p class="small text-muted mt-3 mb-0">
+            Max upload size per file: {{ max_single_upload_mb }} MB. Unsupported or unsafe file types are blocked automatically.
+          </p>
         </div>
         {% block tool_form %}{% endblock %}
         {% endif %}

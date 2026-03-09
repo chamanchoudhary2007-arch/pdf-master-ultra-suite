@@ -1,0 +1,53 @@
+@media (max-width: 1199.98px) {
+  .dashboard-hero-panel,
+  .workspace-plan-panel,
+  .auth-showcase-panel,
+  .premium-auth-card {
+    padding: 1.35rem;
+  }
+
+  .dashboard-stat-grid,
+  .catalog-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .dashboard-display {
+    font-size: clamp(1.75rem, 8vw, 2.3rem);
+  }
+
+  .dashboard-stat-grid,
+  .workspace-plan-metrics,
+  .quick-action-grid,
+  .catalog-hero-stats,
+  .auth-proof-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-callout-band,
+  .auth-mode-label,
+  .auth-route-item,
+  .auth-footer-switch {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-heading-row {
+    align-items: flex-start;
+  }
+
+  .tool-card-footer,
+  .workspace-plan-actions {
+    width: 100%;
+  }
+
+  .tool-card-cta,
+  .workspace-plan-actions .btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,107 @@
+﻿{% extends 'base.html' %}
+{% block title %}API Automation | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Developer automation</span>
+  <h1 class="h3 mb-2">API keys and webhooks</h1>
+  <p class="text-secondary mb-0">Manage API access, rate limits, callback endpoints, and usage logs.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create API key</h2>
+        <form method="post" class="row g-2 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="create_key">
+          <div class="col-md-6"><input class="form-control" type="text" name="name" placeholder="Key name" required></div>
+          <div class="col-md-3"><input class="form-control" type="number" name="rate_limit" value="60" min="10" max="2000"></div>
+          <div class="col-md-3"><input class="form-control" type="number" name="expires_days" value="0" min="0" max="365" placeholder="Days"></div>
+          <div class="col-12"><button class="btn btn-primary" type="submit">Generate key</button></div>
+        </form>
+
+        <hr>
+        <h3 class="h6 mb-2">Your keys</h3>
+        <div class="vstack gap-2">
+          {% for key in api_keys %}
+          <div class="border rounded p-2 d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-medium">{{ key.name }}</div>
+              <div class="small text-muted">{{ key.key_prefix }}... • {{ key.rate_limit_per_minute }}/min • {{ 'Active' if key.is_active else 'Revoked' }}</div>
+            </div>
+            {% if key.is_active %}
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="revoke_key"><input type="hidden" name="key_id" value="{{ key.id }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+            </form>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-secondary">No API keys yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create webhook endpoint</h2>
+        <form method="post" class="vstack gap-2 mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="create_webhook">
+          <input class="form-control" type="text" name="webhook_name" placeholder="Webhook name" required>
+          <input class="form-control" type="url" name="webhook_url" placeholder="https://example.com/webhook" required>
+          <input class="form-control" type="text" name="event_types" value="job.completed,job.failed" placeholder="Comma-separated events">
+          <input class="form-control" type="text" name="webhook_secret" placeholder="Optional secret">
+          <button class="btn btn-primary" type="submit">Add webhook</button>
+        </form>
+
+        <h3 class="h6 mb-2">Endpoints</h3>
+        <div class="vstack gap-2">
+          {% for row in webhooks %}
+          <div class="border rounded p-2 d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-medium">{{ row.name }}</div>
+              <div class="small text-muted">{{ row.url }} • {{ 'Active' if row.is_active else 'Disabled' }}</div>
+            </div>
+            {% if row.is_active %}
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="disable_webhook"><input type="hidden" name="webhook_id" value="{{ row.id }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Disable</button>
+            </form>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-secondary">No webhook endpoints yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h6 mb-3">API usage logs</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Time</th><th>Endpoint</th><th>Method</th><th>Status</th><th>Latency</th></tr></thead>
+        <tbody>
+          {% for row in usage_logs %}
+          <tr>
+            <td>{{ row.created_at.strftime('%d %b %H:%M:%S') }}</td>
+            <td>{{ row.endpoint }}</td>
+            <td>{{ row.method }}</td>
+            <td>{{ row.status_code }}</td>
+            <td>{{ row.response_ms }} ms</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-secondary">No API usage yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

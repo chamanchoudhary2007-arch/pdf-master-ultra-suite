@@ -4,7 +4,24 @@ from datetime import timedelta
 
 from sqlalchemy import func
 
-from app.models import ActivityLog, Job, ManagedFile, ToolCatalog, User, WalletTransaction, utcnow
+from app.models import (
+    ActivityLog,
+    ApiKey,
+    ApiUsageLog,
+    BulkBatch,
+    CloudIntegrationConnection,
+    ComplianceReport,
+    DocumentChatSession,
+    FileAccessLog,
+    Job,
+    ManagedFile,
+    SignatureRequest,
+    TeamWorkspace,
+    ToolCatalog,
+    User,
+    WalletTransaction,
+    utcnow,
+)
 
 
 class AnalyticsService:
@@ -93,4 +110,18 @@ class AnalyticsService:
             "success_rate": success_rate,
             "window_spend_paise": int(window_spend),
             "window_topups_paise": int(window_topups),
+        }
+
+    @staticmethod
+    def advanced_feature_summary() -> dict:
+        return {
+            "chat_sessions": DocumentChatSession.query.count(),
+            "bulk_batches": BulkBatch.query.count(),
+            "signature_requests": SignatureRequest.query.count(),
+            "api_keys": ApiKey.query.filter_by(is_active=True).count(),
+            "api_calls": ApiUsageLog.query.count(),
+            "team_workspaces": TeamWorkspace.query.count(),
+            "compliance_reports": ComplianceReport.query.count(),
+            "cloud_connections": CloudIntegrationConnection.query.filter_by(status="connected").count(),
+            "privacy_logs": FileAccessLog.query.count(),
         }

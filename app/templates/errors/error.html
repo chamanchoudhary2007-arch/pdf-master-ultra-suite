@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}{{ status_code }} | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="py-5">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4 p-lg-5 text-center">
+      <span class="eyebrow">Error {{ status_code }}</span>
+      <h1 class="h3 mt-2">{{ title }}</h1>
+      <p class="text-secondary mb-4">{{ message }}</p>
+      <a class="btn btn-primary" href="{{ url_for('main.landing') }}">Back to home</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
