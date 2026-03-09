@@ -4,6 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
+    preDeployCommand: python -m flask --app wsgi:app db upgrade
     startCommand: gunicorn wsgi:app --workers=2 --threads=4 --timeout=120 --graceful-timeout=30 --log-file=-
     autoDeploy: true
     envVars:
