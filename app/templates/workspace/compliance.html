@@ -1,0 +1,62 @@
+﻿{% extends 'base.html' %}
+{% block title %}Compliance Tools | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Archive + compliance</span>
+  <h1 class="h3 mb-2">PDF/A and archival preparation</h1>
+  <p class="text-secondary mb-0">Run metadata checks, archive prep, and print-safe conversions with downloadable reports.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Run compliance scan</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <select class="form-select" name="mode">
+            <option value="check">Metadata compliance check</option>
+            <option value="pdfa">Convert to archive mode (PDF/A style)</option>
+            <option value="archive">Archive preparation mode</option>
+            <option value="print_safe">Print-safe flatten mode</option>
+          </select>
+          <select class="form-select" name="file_id">
+            <option value="">Upload new file instead</option>
+            {% for file in files %}
+            <option value="{{ file.id }}">{{ file.original_name }}</option>
+            {% endfor %}
+          </select>
+          <input class="form-control" type="file" name="document" accept=".pdf">
+          <input class="form-control" type="text" name="meta_title" placeholder="Metadata title override">
+          <input class="form-control" type="text" name="meta_author" placeholder="Metadata author override">
+          <input class="form-control" type="text" name="meta_subject" placeholder="Metadata subject override">
+          <button class="btn btn-primary" type="submit">Generate report</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Recent compliance reports</h2>
+        <div class="list-group list-group-flush">
+          {% for report in reports %}
+          <div class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-medium">{{ report.report_type|upper }} • {{ report.issue_count }} issue(s)</div>
+              <div class="small text-muted">{{ report.created_at.strftime('%d %b %Y %H:%M') }}</div>
+            </div>
+            {% if report.output_file_id %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_file', file_id=report.output_file_id) }}">Download report</a>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-secondary">No compliance reports yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

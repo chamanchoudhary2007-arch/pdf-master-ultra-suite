@@ -1,0 +1,30 @@
+﻿{% extends 'base.html' %}
+{% block title %}Workspace Hub | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Advanced workspace</span>
+  <h1 class="h2 mb-2">Automation, collaboration, and compliance center</h1>
+  <p class="text-secondary mb-0">Use these modules without changing your existing tool flows.</p>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Chat Sessions</span><strong>{{ summary.chat_sessions }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Bulk Batches</span><strong>{{ summary.bulk_batches }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Signature Requests</span><strong>{{ summary.signature_requests }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Form Templates</span><strong>{{ summary.form_templates }}</strong></div></div>
+</section>
+
+<section class="row g-3">
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.chat_with_pdf') }}"><div class="card-body"><h3 class="h5">Chat With PDF</h3><p class="text-secondary small mb-0">Q&A with summaries, key points, page references.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.bulk_processing') }}"><div class="card-body"><h3 class="h5">Bulk Queue</h3><p class="text-secondary small mb-0">Batch compress, watermark, convert, rename, OCR.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.signatures') }}"><div class="card-body"><h3 class="h5">Send For Signature</h3><p class="text-secondary small mb-0">Multi-signer workflow with ordering and reminders.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.forms') }}"><div class="card-body"><h3 class="h5">Fillable Forms</h3><p class="text-secondary small mb-0">Build reusable form templates and share links.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.cloud_integrations') }}"><div class="card-body"><h3 class="h5">Cloud Integrations</h3><p class="text-secondary small mb-0">Google Drive, Dropbox, OneDrive import/export.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.ocr_suite') }}"><div class="card-body"><h3 class="h5">Advanced OCR Suite</h3><p class="text-secondary small mb-0">Searchable OCR, language packs, table extraction.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.version_history') }}"><div class="card-body"><h3 class="h5">Version Compare</h3><p class="text-secondary small mb-0">Store versions and generate compare reports.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.compliance') }}"><div class="card-body"><h3 class="h5">PDF/A Compliance</h3><p class="text-secondary small mb-0">Archive mode, print-safe output, metadata checks.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.team_workspace') }}"><div class="card-body"><h3 class="h5">Team Workspace</h3><p class="text-secondary small mb-0">Shared projects, comments, approvals, activity.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.api_automation') }}"><div class="card-body"><h3 class="h5">API + Webhooks</h3><p class="text-secondary small mb-0">Manage API keys and completion callbacks.</p></div></a></div>
+  <div class="col-md-6 col-xl-4"><a class="card border-0 shadow-sm h-100 text-decoration-none" href="{{ url_for('workspace.privacy_center') }}"><div class="card-body"><h3 class="h5">Privacy Center</h3><p class="text-secondary small mb-0">Auto-delete, access logs, one-click file purge.</p></div></a></div>
+</section>
+{% endblock %}

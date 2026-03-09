@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Admin analytics</span>
+  <h1 class="h2 mb-0">Platform control panel</h1>
+</section>
+<section class="row g-4 mb-4">
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Total users</span><strong>{{ summary.total_users }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Total jobs</span><strong>{{ summary.total_jobs }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Revenue</span><strong>{{ summary.revenue_paise|money }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Cloud files</span><strong>{{ summary.cloud_files }}</strong></div></div>
+</section>
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="d-flex flex-wrap gap-3">
+      <div class="metric-inline"><span>Premium users</span><strong>{{ premium_summary.total_premium_users }}</strong></div>
+      <div class="metric-inline"><span>Active</span><strong>{{ premium_summary.active_count }}</strong></div>
+      <div class="metric-inline"><span>Expiring soon</span><strong>{{ premium_summary.expiring_count }}</strong></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin.subscriptions') }}">
+        Open subscription manager
+      </a>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.advanced') }}">
+        Advanced monitoring
+      </a>
+    </div>
+  </div>
+</section>
+<section class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Chat Sessions</span><strong>{{ advanced_summary.chat_sessions }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Bulk Batches</span><strong>{{ advanced_summary.bulk_batches }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Sign Requests</span><strong>{{ advanced_summary.signature_requests }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Team Workspaces</span><strong>{{ advanced_summary.team_workspaces }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Active API Keys</span><strong>{{ advanced_summary.api_keys }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>API Calls</span><strong>{{ advanced_summary.api_calls }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Compliance Reports</span><strong>{{ advanced_summary.compliance_reports }}</strong></div></div>
+  <div class="col-md-6 col-xl-3"><div class="metric-surface"><span>Cloud Connections</span><strong>{{ advanced_summary.cloud_connections }}</strong></div></div>
+</section>
+<section class="row g-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Most used tools</h2>
+        <div class="vstack gap-3">
+          {% for tool_key, usage_count in tool_usage %}
+          <div class="d-flex justify-content-between"><span>{{ tool_key }}</span><strong>{{ usage_count }}</strong></div>
+          {% else %}
+          <div class="text-secondary">No usage data yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Recent payments</h2>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Reference</th><th>Type</th><th>Amount</th><th>Balance</th></tr></thead>
+            <tbody>
+              {% for payment in recent_payments[:10] %}
+              <tr>
+                <td>{{ payment.reference }}</td>
+                <td>{{ payment.transaction_type }}</td>
+                <td>{{ payment.amount_paise|money }}</td>
+                <td>{{ payment.balance_after_paise|money }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-secondary">No payments yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="row g-4 mt-1">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5 mb-3">Recent logs</h2>
+        <div class="vstack gap-2">
+          {% for log in recent_logs[:8] %}
+          <div class="border rounded p-2">
+            <div class="fw-medium">{{ log.action }}</div>
+            <div class="small text-muted">{{ log.target_type }} {{ log.target_id }}</div>
+          </div>
+          {% else %}
+          <div class="text-secondary">No logs yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h5 mb-0">Tool controls</h2>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.tools') }}">Open catalog manager</a>
+        </div>
+        <div class="vstack gap-2">
+          {% for tool in tools %}
+          <div class="d-flex justify-content-between border rounded p-2 align-items-center">
+            <div>
+              <div class="fw-medium">{{ tool.name }}</div>
+              <div class="small text-muted">{{ tool.category }}</div>
+            </div>
+            <span class="badge {{ 'text-bg-success' if tool.is_enabled else 'text-bg-secondary' }}">
+              {{ 'Enabled' if tool.is_enabled else 'Disabled' }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

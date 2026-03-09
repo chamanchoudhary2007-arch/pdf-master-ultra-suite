@@ -1,0 +1,97 @@
+:root {
+  --app-font-body: "Manrope", "SF Pro Display", "Segoe UI", sans-serif;
+  --app-font-display: "Space Grotesk", "SF Pro Display", "Segoe UI", sans-serif;
+
+  --app-bg: #f2f4f6;
+  --app-bg-alt: #e7ecee;
+  --app-surface: rgba(255, 255, 255, 0.8);
+  --app-surface-strong: rgba(255, 255, 255, 0.94);
+  --app-surface-soft: rgba(248, 250, 251, 0.74);
+  --app-card: #ffffff;
+
+  --app-text: #202a36;
+  --app-text-soft: #3f4b58;
+  --app-muted: #697786;
+
+  --app-primary: #2f7660;
+  --app-primary-strong: #215644;
+  --app-primary-soft: rgba(47, 118, 96, 0.12);
+  --app-accent: #c7b07b;
+  --app-accent-strong: #9a7b3c;
+
+  --app-border: rgba(33, 52, 78, 0.11);
+  --app-border-strong: rgba(33, 52, 78, 0.18);
+
+  --app-shadow-xs: 0 8px 16px rgba(25, 37, 56, 0.07);
+  --app-shadow: 0 20px 44px rgba(25, 37, 56, 0.12);
+  --app-shadow-lg: 0 34px 80px rgba(19, 33, 53, 0.16);
+
+  --app-glass-border: rgba(255, 255, 255, 0.52);
+  --app-glass-highlight: rgba(255, 255, 255, 0.64);
+
+  --app-radius-xs: 0.78rem;
+  --app-radius-sm: 1rem;
+  --app-radius-md: 1.2rem;
+  --app-radius-lg: 1.5rem;
+  --app-radius-xl: 1.95rem;
+}
+
+html[data-bs-theme="dark"] {
+  --app-bg: #09131f;
+  --app-bg-alt: #0f1e2e;
+  --app-surface: rgba(12, 23, 36, 0.78);
+  --app-surface-strong: rgba(13, 25, 40, 0.94);
+  --app-surface-soft: rgba(20, 33, 49, 0.72);
+  --app-card: #101c2c;
+
+  --app-text: #eef4fc;
+  --app-text-soft: #ccd8e8;
+  --app-muted: #90a2b8;
+
+  --app-primary: #74c2a8;
+  --app-primary-strong: #4ca889;
+  --app-primary-soft: rgba(116, 194, 168, 0.14);
+  --app-accent: #dfc084;
+  --app-accent-strong: #f0cf95;
+
+  --app-border: rgba(234, 243, 255, 0.14);
+  --app-border-strong: rgba(234, 243, 255, 0.2);
+
+  --app-shadow-xs: 0 10px 18px rgba(0, 0, 0, 0.26);
+  --app-shadow: 0 24px 54px rgba(0, 0, 0, 0.34);
+  --app-shadow-lg: 0 36px 90px rgba(0, 0, 0, 0.42);
+
+  --app-glass-border: rgba(255, 255, 255, 0.1);
+  --app-glass-highlight: rgba(255, 255, 255, 0.08);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body.app-body {
+  font-family: var(--app-font-body);
+  color: var(--app-text);
+  background:
+    radial-gradient(circle at 6% 4%, rgba(84, 162, 137, 0.15), transparent 32%),
+    radial-gradient(circle at 92% 3%, rgba(199, 176, 123, 0.13), transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(82, 109, 142, 0.12), transparent 30%),
+    linear-gradient(180deg, var(--app-bg), var(--app-bg-alt));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.display-5,
+.dashboard-display,
+.section-title,
+.brand-name {
+  font-family: var(--app-font-display);
+  letter-spacing: -0.03em;
+}

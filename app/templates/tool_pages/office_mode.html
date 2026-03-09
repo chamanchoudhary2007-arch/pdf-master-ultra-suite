@@ -1,0 +1,22 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Office mode tools</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-md-6">
+    <select class="form-select" name="office_action">
+      <option value="contract_extract">Contract page extractor</option>
+      <option value="invoice_split">Invoice PDF splitter</option>
+      <option value="bulk_rename">Bulk rename documents</option>
+      <option value="stamp">Stamp system</option>
+    </select>
+  </div>
+  <div class="col-md-6"><input class="form-control" type="file" name="document" accept=".pdf"></div>
+  <div class="col-12"><input class="form-control" type="file" name="documents" multiple></div>
+  <div class="col-md-4"><input class="form-control" type="text" name="keywords" placeholder="Keywords for contract extract"></div>
+  <div class="col-md-4"><input class="form-control" type="number" name="pages_per_invoice" value="1" min="1" placeholder="Pages per invoice"></div>
+  <div class="col-md-4"><input class="form-control" type="text" name="rename_prefix" placeholder="Rename prefix"></div>
+  <div class="col-12"><input class="form-control" type="text" name="stamp_text" placeholder="Stamp text e.g. APPROVED"></div>
+  <div class="col-12"><button class="btn btn-primary">Run office workflow</button></div>
+</form>
+{% endblock %}

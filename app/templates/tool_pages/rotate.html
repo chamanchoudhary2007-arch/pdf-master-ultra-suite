@@ -1,0 +1,17 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Rotate selected pages</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-6"><input class="form-control" type="text" name="pages" placeholder="1,2,5-7" required></div>
+  <div class="col-md-6">
+    <select class="form-select" name="angle">
+      <option value="90">90°</option>
+      <option value="180">180°</option>
+      <option value="270">270°</option>
+    </select>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Rotate pages</button></div>
+</form>
+{% endblock %}

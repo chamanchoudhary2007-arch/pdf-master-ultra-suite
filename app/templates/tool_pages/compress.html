@@ -1,0 +1,58 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-2">Compress PDF</h2>
+<p class="text-secondary mb-4">Use level compression, exact target-size compression, or increase file size based on portal requirements.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3" id="pdfCompressForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="compress_action" id="compressAction" value="level">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-4">
+    <div class="form-check border rounded p-3">
+      <input class="form-check-input" type="radio" name="level" value="low" id="levelLow">
+      <label class="form-check-label fw-medium" for="levelLow">Low compression</label>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="form-check border rounded p-3">
+      <input class="form-check-input" type="radio" name="level" value="balanced" id="levelBalanced" checked>
+      <label class="form-check-label fw-medium" for="levelBalanced">Balanced</label>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="form-check border rounded p-3">
+      <input class="form-check-input" type="radio" name="level" value="strong" id="levelStrong">
+      <label class="form-check-label fw-medium" for="levelStrong">Strong compression</label>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Target size (KB)</label>
+    <input class="form-control" id="compressTargetKb" type="number" name="target_kb" value="100" min="10" max="150000">
+  </div>
+  <div class="col-md-8 d-flex flex-wrap gap-2 align-items-end">
+    <button class="btn btn-outline-secondary" type="button" data-pdf-action="level">Use selected level</button>
+    <button class="btn btn-outline-secondary" type="button" data-pdf-action="target">Compress to target KB</button>
+    <button class="btn btn-outline-secondary" type="button" data-pdf-action="increase">Increase to target KB</button>
+  </div>
+
+  <div class="col-12">
+    <div class="image-tool-section mb-0">
+      <h3 class="h6 mb-2">Exact target sizes</h3>
+      <div class="image-tool-grid compact-grid">
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="50">Compress to 50KB</button>
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="100">Compress to 100KB</button>
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="200">Compress to 200KB</button>
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="500">Compress to 500KB</button>
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="1024">Compress to 1MB</button>
+        <button class="btn btn-outline-secondary image-action-tile" type="button" data-pdf-action="target" data-target-kb="2048">Compress to 2MB</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12"><button class="btn btn-primary">Process PDF</button></div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+window.setupPdfCompressActions && window.setupPdfCompressActions();
+</script>
+{% endblock %}

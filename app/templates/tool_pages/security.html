@@ -1,0 +1,25 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Protect or unlock PDFs</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  {% if tool.tool_key in ['protect_pdf', 'unlock_pdf'] %}
+  <input type="hidden" name="security_action" value="{{ 'protect' if tool.tool_key == 'protect_pdf' else 'unlock' }}">
+  <div class="col-12">
+    <div class="form-text">
+      Action: <strong>{{ 'Password protect' if tool.tool_key == 'protect_pdf' else 'Remove password' }}</strong>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-md-6">
+    <select class="form-select" name="security_action">
+      <option value="protect">Password protect</option>
+      <option value="unlock">Remove password</option>
+    </select>
+  </div>
+  {% endif %}
+  <div class="col-md-6"><input class="form-control" type="password" name="password" placeholder="Password" required></div>
+  <div class="col-12"><button class="btn btn-primary">Run security tool</button></div>
+</form>
+{% endblock %}

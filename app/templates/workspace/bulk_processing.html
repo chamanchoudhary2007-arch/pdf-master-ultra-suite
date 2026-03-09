@@ -1,0 +1,64 @@
+﻿{% extends 'base.html' %}
+{% block title %}Bulk Processing | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Multi-job queue</span>
+  <h1 class="h3 mb-2">Bulk processing center</h1>
+  <p class="text-secondary mb-0">Queue multiple files, track per-file status, and download combined results.</p>
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create batch</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input class="form-control" type="text" name="batch_name" placeholder="Batch name">
+          <select class="form-select" name="tool_key">
+            <option value="compress">Compress PDFs</option>
+            <option value="watermark">Watermark PDFs</option>
+            <option value="convert">Convert files</option>
+            <option value="rename">Rename files</option>
+            <option value="merge_by_folder">Merge all PDFs</option>
+            <option value="ocr_batch">OCR batch</option>
+          </select>
+          <input class="form-control" type="file" name="documents" multiple required>
+          <div class="row g-2">
+            <div class="col-md-6"><input class="form-control" type="text" name="watermark_text" placeholder="Watermark text"></div>
+            <div class="col-md-6"><input class="form-control" type="text" name="rename_prefix" placeholder="Rename prefix"></div>
+            <div class="col-md-6"><input class="form-control" type="text" name="target_format" placeholder="Target format (txt/docx/pdf)"></div>
+            <div class="col-md-6"><input class="form-control" type="text" name="ocr_lang" placeholder="OCR lang e.g. eng+hin"></div>
+          </div>
+          <button class="btn btn-primary" type="submit">Queue batch</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Recent batches</h2>
+        <div class="list-group list-group-flush">
+          {% for batch in batches %}
+          <a class="list-group-item list-group-item-action px-0" href="{{ url_for('workspace.bulk_batch_detail', batch_id=batch.id) }}">
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+              <div>
+                <div class="fw-medium">{{ batch.name }}</div>
+                <div class="small text-muted">{{ batch.tool_key }} • {{ batch.total_files }} file(s)</div>
+              </div>
+              <div class="text-end">
+                <span class="badge text-bg-light border">{{ batch.status|title }}</span>
+                <div class="small text-muted">{{ batch.processed_files }} done / {{ batch.failed_files }} failed</div>
+              </div>
+            </div>
+          </a>
+          {% else %}
+          <div class="text-secondary">No bulk batches yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

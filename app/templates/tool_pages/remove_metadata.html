@@ -1,0 +1,9 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Remove PDF metadata</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="vstack gap-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input class="form-control" type="file" name="document" accept=".pdf" required>
+  <button class="btn btn-primary">Strip metadata</button>
+</form>
+{% endblock %}

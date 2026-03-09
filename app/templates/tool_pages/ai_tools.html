@@ -1,0 +1,31 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">AI document features</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <input class="form-control" type="file" name="document" accept=".pdf,.txt,.md" required>
+    <div class="form-text">Supported files: PDF, TXT, MD.</div>
+  </div>
+  {% if tool.tool_key == 'translate_pdf' %}
+  <input type="hidden" name="ai_action" value="translate">
+  <div class="col-md-6">
+    <div class="form-text">Action: <strong>Translate document</strong></div>
+  </div>
+  {% else %}
+  <div class="col-md-6">
+    <select class="form-select" name="ai_action">
+      <option value="summary">PDF summarizer</option>
+      <option value="translate">Translate document</option>
+      <option value="keywords">Extract keywords</option>
+      <option value="notes">Auto generate notes</option>
+    </select>
+  </div>
+  {% endif %}
+  <div class="col-md-6">
+    <input class="form-control" type="text" name="target_language" value="hi" placeholder="Target language code (hi, hindi, en, ta...)">
+    <div class="form-text">For Hindi, use <strong>hi</strong> or <strong>hindi</strong>.</div>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Run AI feature</button></div>
+</form>
+{% endblock %}

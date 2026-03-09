@@ -1,0 +1,32 @@
+﻿{% extends 'base.html' %}
+{% block title %}Admin Advanced Monitoring | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <span class="eyebrow">Admin monitoring</span>
+    <h1 class="h3 mb-0">Advanced feature operations</h1>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('admin.dashboard') }}">Back to dashboard</a>
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">Signature requests</h2><div class="vstack gap-2">{% for row in signature_requests %}<div class="border rounded p-2 d-flex justify-content-between"><span>#{{ row.id }} {{ row.title }}</span><span class="badge text-bg-light border">{{ row.status }}</span></div>{% else %}<div class="text-secondary">No records.</div>{% endfor %}</div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">Bulk batches</h2><div class="vstack gap-2">{% for row in bulk_batches %}<div class="border rounded p-2 d-flex justify-content-between"><span>#{{ row.id }} {{ row.tool_key }}</span><span class="badge text-bg-light border">{{ row.status }}</span></div>{% else %}<div class="text-secondary">No records.</div>{% endfor %}</div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">API usage</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Time</th><th>Endpoint</th><th>Status</th></tr></thead><tbody>{% for row in api_usage[:40] %}<tr><td>{{ row.created_at.strftime('%d %b %H:%M:%S') }}</td><td>{{ row.endpoint }}</td><td>{{ row.status_code }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">No API calls.</td></tr>{% endfor %}</tbody></table></div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">Cloud connections</h2><div class="vstack gap-2">{% for row in cloud_connections[:40] %}<div class="border rounded p-2 d-flex justify-content-between"><span>{{ row.provider }} • {{ row.account_email }}</span><span class="badge text-bg-light border">{{ row.status }}</span></div>{% else %}<div class="text-secondary">No cloud connections.</div>{% endfor %}</div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">Compliance reports</h2><div class="vstack gap-2">{% for row in compliance_reports[:40] %}<div class="border rounded p-2">#{{ row.id }} {{ row.report_type }} • issues {{ row.issue_count }}</div>{% else %}<div class="text-secondary">No reports.</div>{% endfor %}</div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body"><h2 class="h6 mb-3">Privacy + team</h2><div class="small text-muted mb-2">Recent file access logs: {{ privacy_logs|length }}</div><div class="small text-muted mb-3">Total workspaces shown: {{ workspaces|length }}</div><div class="vstack gap-2">{% for row in workspaces[:20] %}<div class="border rounded p-2">#{{ row.id }} {{ row.name }} (owner {{ row.owner_id }})</div>{% else %}<div class="text-secondary">No workspaces.</div>{% endfor %}</div></div></div>
+  </div>
+</section>
+{% endblock %}

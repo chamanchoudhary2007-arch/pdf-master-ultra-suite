@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}{{ tool.name }} | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  {% set is_paid_tool = tool.is_subscription_only or ((tool.price_paise or 0) > 0 and tool.is_payperuse_allowed) %}
+  <div class="tool-hero">
+    <div class="tool-hero-main">
+      <a
+        class="btn btn-sm btn-outline-secondary tool-back-btn"
+        href="{{ url_for('main.all_tools') }}"
+        data-history-back
+        data-back-fallback="{{ url_for('main.all_tools') }}"
+      >
+        <i class="bi bi-arrow-left"></i>Back
+      </a>
+      <span class="eyebrow">{{ tool.category }}</span>
+      <h1 class="h2 mb-2">{{ tool.name }}</h1>
+      <p class="text-secondary mb-0">{{ tool.description }}</p>
+    </div>
+    <div class="tool-hero-meta">
+      <div class="{{ 'pro-badge pro-badge-large' if is_paid_tool else 'tool-status-badge tool-status-badge-large' }}">
+        {% if is_paid_tool %}
+        <i class="bi bi-gem me-1"></i>PRO
+        {% else %}
+        FREE
+        {% endif %}
+      </div>
+      <div class="small text-muted">
+        {% if is_paid_tool and is_premium_user %}
+        Included in your premium access
+        {% elif is_paid_tool %}
+        Premium / paid workflow
+        {% else %}
+        Available in free access
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+<section class="row g-4">
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        {% if premium_blocked|default(false) %}
+        <div class="premium-lock p-4">
+          <span class="eyebrow mb-2">Pro required</span>
+          <h2 class="h4 mb-2">This tool is available on Premium plans</h2>
+          <p class="text-secondary mb-3">Unlock this workflow from the dashboard billing panel and run it instantly.</p>
+          <a class="btn btn-primary" href="{{ billing_settings_url }}" data-billing-redirect>Go to billing</a>
+        </div>
+        {% else %}
+        <div class="tool-instructions mb-4">
+          <h2 class="h6 mb-2">How to use this tool</h2>
+          <ol class="small text-secondary mb-0">
+            <li>Upload your file using the drag-drop area or choose file button.</li>
+            <li>Set required options, then click process.</li>
+            <li>Track status in Recent jobs and download result from Recent outputs.</li>
+          </ol>
+          <p class="small text-muted mt-3 mb-0">
+            Max upload size per file: {{ max_single_upload_mb }} MB. Unsupported or unsafe file types are blocked automatically.
+          </p>
+        </div>
+        {% block tool_form %}{% endblock %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h5 mb-0">Recent outputs</h2>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.dashboard') }}">View jobs</a>
+        </div>
+        {% if output_files %}
+        <a class="btn btn-primary btn-sm mb-3" href="{{ url_for('main.download_file', file_id=output_files[0].id) }}">
+          <i class="bi bi-download me-1"></i>Download latest output
+        </a>
+        {% endif %}
+        <div class="vstack gap-2">
+          {% for file in output_files[:6] %}
+          <div class="download-item">
+            <span class="small download-item-name download-item-main">{{ file.original_name }}</span>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_file', file_id=file.id) }}">Get</a>
+          </div>
+          {% else %}
+          <div class="text-secondary small">Processed files appear here.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Favorites + cloud</h2>
+        <p class="small text-secondary">Store commonly used source files in cloud storage and generate share links after processing.</p>
+        <a class="btn btn-outline-secondary w-100 mb-2" href="{{ url_for('tools.tool_detail', tool_key='cloud_storage') }}">Open cloud storage</a>
+        <a class="btn btn-outline-secondary w-100" href="{{ url_for('tools.tool_detail', tool_key='file_share') }}">Open file share</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Split automation</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Split mode</label>
+    <select class="form-select" name="split_mode">
+      <option value="range">Custom range</option>
+      <option value="every">Automatic every N pages</option>
+    </select>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Page range</label>
+    <input class="form-control" type="text" name="page_range" placeholder="1-3,5-7">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Every N pages</label>
+    <select class="form-select" name="every_n">
+      <option value="1">Every page</option>
+      <option value="2">Every 2 pages</option>
+      <option value="5">Every 5 pages</option>
+    </select>
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Queue split job</button>
+  </div>
+</form>
+{% endblock %}

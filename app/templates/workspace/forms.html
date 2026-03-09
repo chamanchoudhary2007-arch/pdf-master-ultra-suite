@@ -1,0 +1,74 @@
+﻿{% extends 'base.html' %}
+{% block title %}Form Builder | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Fillable forms</span>
+  <h1 class="h3 mb-2">Template manager</h1>
+  <p class="text-secondary mb-0">Build reusable PDF forms and generate shareable fill links.</p>
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create template</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="create">
+          <input class="form-control" type="text" name="name" placeholder="Template name" required>
+          <textarea class="form-control" name="description" rows="2" placeholder="Template description"></textarea>
+          <input class="form-control" type="file" name="document" accept=".pdf" required>
+          <label class="form-label mb-0">Fields JSON (optional, auto-detect runs if empty)</label>
+          <textarea class="form-control" name="fields_json" rows="5" placeholder='[{"page":1,"field_type":"text","name":"full_name","label":"Full Name","x":72,"y":720,"width":220,"height":24}]'></textarea>
+          <button class="btn btn-primary" type="submit">Create template</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Templates</h2>
+        <div class="list-group list-group-flush">
+          {% for template in templates %}
+          <div class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+              <div>
+                <div class="fw-medium">{{ template.name }}</div>
+                <div class="small text-muted">{{ template.description or 'No description' }}</div>
+                <div class="small">Fill link: <a href="{{ url_for('workspace.form_fill', token=template.share_token, _external=True) }}" target="_blank">Open</a></div>
+              </div>
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('workspace.form_builder', template_id=template.id) }}">Builder</a>
+            </div>
+          </div>
+          {% else %}
+          <div class="text-secondary">No templates created yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Recent submissions</h2>
+        <div class="list-group list-group-flush">
+          {% for row in submissions %}
+          <div class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-medium">{{ row.template.name if row.template else 'Template' }}</div>
+              <div class="small text-muted">{{ row.created_at.strftime('%d %b %Y %H:%M') }}</div>
+            </div>
+            {% if row.output_file_id %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_file', file_id=row.output_file_id) }}">Download</a>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-secondary">No submissions yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

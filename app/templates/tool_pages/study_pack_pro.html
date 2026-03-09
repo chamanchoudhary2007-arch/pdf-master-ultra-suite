@@ -1,0 +1,22 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Student Study Pack Pro</h2>
+<p class="text-secondary">Create summary, notes, flashcards, quizzes, formula sheet, and revision plan from one PDF.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-4">
+    <label class="form-label">Flashcards</label>
+    <input class="form-control" type="number" name="flashcard_limit" value="12" min="4" max="40">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Quiz questions</label>
+    <input class="form-control" type="number" name="quiz_limit" value="10" min="3" max="30">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Revision days</label>
+    <input class="form-control" type="number" name="revision_days" value="7" min="1" max="30">
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Generate study pack</button></div>
+</form>
+{% endblock %}

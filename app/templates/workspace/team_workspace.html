@@ -1,0 +1,145 @@
+﻿{% extends 'base.html' %}
+{% block title %}Team Workspace | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Collaboration</span>
+  <h1 class="h3 mb-2">Team workspace and shared projects</h1>
+  <p class="text-secondary mb-0">Invite members, manage approvals, add comments, and track activity feed.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create workspace</h2>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="create_workspace">
+          <input class="form-control" type="text" name="name" placeholder="Workspace name" required>
+          <textarea class="form-control" name="description" rows="2" placeholder="Description"></textarea>
+          <button class="btn btn-primary" type="submit">Create</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Workspaces</h2>
+        <div class="list-group list-group-flush">
+          {% for workspace in workspaces %}
+          <a class="list-group-item list-group-item-action px-0" href="{{ url_for('workspace.team_workspace', workspace_id=workspace.id) }}">
+            <div class="fw-medium">{{ workspace.name }}</div>
+            <div class="small text-muted">{{ workspace.status|title }}</div>
+          </a>
+          {% else %}
+          <div class="text-secondary">No workspaces found.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    {% if active_workspace %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-2">Active: {{ active_workspace.name }}</h2>
+        <p class="small text-muted mb-3">{{ active_workspace.description or 'No description' }}</p>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <form method="post" class="vstack gap-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="invite_member"><input type="hidden" name="workspace_id" value="{{ active_workspace.id }}">
+              <input class="form-control form-control-sm" type="email" name="email" placeholder="Invite email" required>
+              <select class="form-select form-select-sm" name="role"><option value="viewer">Viewer</option><option value="editor">Editor</option><option value="approver">Approver</option></select>
+              <button class="btn btn-sm btn-outline-primary" type="submit">Invite member</button>
+            </form>
+          </div>
+          <div class="col-md-6">
+            <form method="post" class="vstack gap-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="create_project"><input type="hidden" name="workspace_id" value="{{ active_workspace.id }}">
+              <input class="form-control form-control-sm" type="text" name="project_name" placeholder="Project name" required>
+              <input class="form-control form-control-sm" type="text" name="project_description" placeholder="Project description">
+              <button class="btn btn-sm btn-outline-primary" type="submit">Create project</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Members</h2>
+        <div class="d-flex flex-wrap gap-2">
+          {% for member in members %}
+          <span class="badge text-bg-light border">{{ member.email }} ({{ member.role }}, {{ member.status }})</span>
+          {% else %}
+          <span class="text-secondary">No members.</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Projects</h2>
+        <div class="vstack gap-3">
+          {% for project in projects %}
+          <article class="border rounded p-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <div>
+                <div class="fw-medium">{{ project.name }}</div>
+                <div class="small text-muted">{{ project.description or 'No description' }}</div>
+              </div>
+              <span class="badge text-bg-light border">{{ project.approval_status|replace('_', ' ')|title }}</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-4">
+                <form method="post" class="vstack gap-2">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="set_approval"><input type="hidden" name="project_id" value="{{ project.id }}">
+                  <select class="form-select form-select-sm" name="approval_status"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="changes_requested">Changes requested</option></select>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Update</button>
+                </form>
+              </div>
+              <div class="col-md-4">
+                <form method="post" class="vstack gap-2">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="attach_file"><input type="hidden" name="project_id" value="{{ project.id }}">
+                  <select class="form-select form-select-sm" name="file_id">{% for file in files %}<option value="{{ file.id }}">{{ file.original_name }}</option>{% endfor %}</select>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Attach file</button>
+                </form>
+              </div>
+              <div class="col-md-4">
+                <form method="post" class="vstack gap-2">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="comment"><input type="hidden" name="project_id" value="{{ project.id }}">
+                  <input class="form-control form-control-sm" type="text" name="content" placeholder="Add comment" required>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Post comment</button>
+                </form>
+              </div>
+            </div>
+          </article>
+          {% else %}
+          <div class="text-secondary">No projects yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Recent activity</h2>
+        <div class="list-group list-group-flush">
+          {% for event in feed %}
+          <div class="list-group-item px-0">
+            <div class="fw-medium">{{ event.action }}</div>
+            <div class="small text-muted">{{ event.created_at.strftime('%d %b %H:%M') }}</div>
+          </div>
+          {% else %}
+          <div class="text-secondary">No activity yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm"><div class="card-body text-secondary">Create or select a workspace to begin collaboration.</div></div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

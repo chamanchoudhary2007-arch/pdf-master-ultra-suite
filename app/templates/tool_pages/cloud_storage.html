@@ -1,0 +1,42 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Personal cloud storage</h2>
+<form method="post" action="{{ url_for('main.cloud_upload') }}" enctype="multipart/form-data" class="row g-3 mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-md-9"><input class="form-control" type="file" name="cloud_file" required></div>
+  <div class="col-md-3"><button class="btn btn-primary w-100">Upload file</button></div>
+</form>
+<div class="vstack gap-3">
+  {% for file in cloud_files %}
+  <div class="border rounded p-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+      <div class="flex-grow-1">
+        <div class="fw-medium">{{ file.original_name }}</div>
+        <div class="small text-muted">{{ file.size_bytes }} bytes</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.preview_file', file_id=file.id) }}">Preview</a>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('main.download_file', file_id=file.id) }}">Download</a>
+      </div>
+    </div>
+    <div class="row g-2 mt-2">
+      <div class="col-md-8">
+        <form method="post" action="{{ url_for('main.rename_cloud_file', file_id=file.id) }}" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input class="form-control" type="text" name="new_name" value="{{ file.original_name }}">
+          <button class="btn btn-outline-secondary">Rename</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="{{ url_for('main.delete_cloud_file', file_id=file.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-danger w-100">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="text-secondary">Cloud storage is empty.</div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Page number generator</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-6">
+    <select class="form-select" name="position">
+      <option value="top_left">Top left</option>
+      <option value="top_right">Top right</option>
+      <option value="bottom_center">Bottom center</option>
+    </select>
+  </div>
+  <div class="col-md-6"><input class="form-control" type="number" name="font_size" value="10" min="8" max="36"></div>
+  <div class="col-12"><button class="btn btn-primary">Add page numbers</button></div>
+</form>
+{% endblock %}

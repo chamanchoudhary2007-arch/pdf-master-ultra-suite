@@ -1,0 +1,15 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">OCR for scanned PDFs</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-6">
+    <select class="form-select" name="ocr_action">
+      <option value="text">Extract text only</option>
+      <option value="searchable">Generate searchable PDF bundle</option>
+    </select>
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Run OCR</button></div>
+</form>
+{% endblock %}

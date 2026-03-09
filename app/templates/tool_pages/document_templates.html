@@ -1,0 +1,22 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Document templates</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-md-6">
+    <select class="form-select" name="template_key">
+      <option value="resume">Resume builder</option>
+      <option value="invoice">Invoice generator</option>
+      <option value="cover_letter">Cover letter builder</option>
+      <option value="certificate">Certificate generator</option>
+    </select>
+  </div>
+  <div class="col-md-6"><input class="form-control" type="text" name="title" placeholder="Document title"></div>
+  <div class="col-md-6"><input class="form-control" type="text" name="name" placeholder="Name / recipient"></div>
+  <div class="col-md-6"><input class="form-control" type="text" name="email" placeholder="Email or contact"></div>
+  <div class="col-md-6"><input class="form-control" type="text" name="company" placeholder="Company / institution"></div>
+  <div class="col-md-6"><input class="form-control" type="text" name="amount" placeholder="Amount / salary / fee"></div>
+  <div class="col-12"><textarea class="form-control" name="body" rows="6" placeholder="Document body, summary, achievements, description..."></textarea></div>
+  <div class="col-12"><button class="btn btn-primary">Generate PDF document</button></div>
+</form>
+{% endblock %}

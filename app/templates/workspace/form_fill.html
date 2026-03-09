@@ -1,0 +1,56 @@
+﻿{% extends 'base.html' %}
+{% block title %}Fill Form | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Form fill link</span>
+  <h1 class="h3 mb-2">{{ template.name if template else 'Form not available' }}</h1>
+  <p class="text-secondary mb-0">Complete fields and export the filled PDF.</p>
+</section>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if success_token %}
+<div class="alert alert-success">
+  Form submitted successfully.
+  <a class="alert-link" href="{{ url_for('workspace.form_submission_download', token=success_token) }}">Download filled PDF</a>
+</div>
+{% endif %}
+
+{% if template %}
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post" class="vstack gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for field in fields %}
+      {% set key = field.name or ('field_' ~ field.id) %}
+      <div>
+        <label class="form-label">{{ field.label or key }} <small class="text-muted">(page {{ field.page }})</small></label>
+        {% if field.field_type in ['dropdown', 'radio'] and field.options_json %}
+        <select class="form-select" name="{{ key }}" {% if field.required %}required{% endif %}>
+          <option value="">Select option</option>
+          {% for option in field.options_json %}
+          <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+        {% elif field.field_type == 'checkbox' %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" value="true" name="{{ key }}" id="{{ key }}">
+          <label class="form-check-label" for="{{ key }}">Checked</label>
+        </div>
+        {% elif field.field_type == 'date' %}
+        <input class="form-control" type="date" name="{{ key }}" {% if field.required %}required{% endif %}>
+        {% else %}
+        <input class="form-control" type="text" name="{{ key }}" placeholder="{{ field.placeholder }}" {% if field.required %}required{% endif %}>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="text-secondary">No fields defined for this form.</div>
+      {% endfor %}
+      <button class="btn btn-primary" type="submit">Submit and generate PDF</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

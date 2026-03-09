@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Advanced Admin Pro | PDF Master Ultra Suite</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 30%),
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.11), transparent 28%),
+        #060b16;
+      color: #e2e8f0;
+    }
+    .panel-surface {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1rem;
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.34);
+    }
+    .metric-card {
+      border-radius: 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(30, 41, 59, 0.62);
+      padding: 1rem;
+      height: 100%;
+    }
+    .metric-label {
+      color: #94a3b8;
+      font-size: 0.82rem;
+      display: block;
+    }
+    .metric-value {
+      color: #f8fafc;
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .health-row {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(30, 41, 59, 0.52);
+      border-radius: 0.8rem;
+      padding: 0.75rem 0.85rem;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    .form-control,
+    .form-select {
+      background: rgba(15, 23, 42, 0.72);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: #f8fafc;
+    }
+    .form-control::placeholder {
+      color: #94a3b8;
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: rgba(45, 212, 191, 0.7);
+      box-shadow: 0 0 0 0.18rem rgba(20, 184, 166, 0.15);
+      background: rgba(15, 23, 42, 0.84);
+      color: #fff;
+    }
+    .table td,
+    .table th {
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .badge-danger-soft {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(239, 68, 68, 0.32);
+    }
+    .badge-warning-soft {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fde68a;
+      border: 1px solid rgba(251, 191, 36, 0.34);
+    }
+    .badge-success-soft {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.34);
+    }
+    .muted-xs {
+      color: #94a3b8;
+      font-size: 0.78rem;
+    }
+    .mini-input {
+      width: 86px;
+    }
+    .analytics-row {
+      align-items: flex-start;
+    }
+    .chart-panel,
+    .health-panel {
+      height: auto;
+    }
+    .chart-wrap {
+      position: relative;
+      height: clamp(220px, 34vh, 320px);
+    }
+    .health-grid {
+      gap: 0.55rem !important;
+    }
+    @media (max-width: 1199.98px) {
+      .chart-wrap {
+        height: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container-xxl py-4 py-lg-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="mb-4">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="panel-surface p-3 p-lg-4 mb-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <span class="badge bg-success-subtle text-success-emphasis mb-2">Advanced Admin Pro</span>
+          <h1 class="h3 mb-1">Financial + Subscription Management</h1>
+          <p class="text-secondary mb-0">Track Razorpay revenue, premium validity, and user login issues centrally.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-outline-warning" href="{{ url_for('export_revenue_xlsx') }}"><i class="bi bi-file-earmark-excel me-1"></i>Revenue Excel</a>
+          <a class="btn btn-outline-info" href="{{ url_for('export_revenue_csv') }}"><i class="bi bi-filetype-csv me-1"></i>Revenue CSV</a>
+          <a class="btn btn-outline-light" href="{{ url_for('export_premium_csv') }}"><i class="bi bi-download me-1"></i>Premium CSV</a>
+          <form method="post" action="{{ url_for('admin_logout') }}">
+            <button class="btn btn-outline-danger" type="submit"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-4">
+      <div class="col-md-6 col-xl-3">
+        <div class="metric-card">
+          <span class="metric-label">Total Revenue (All Time)</span>
+          <div class="metric-value">{{ finances.total_revenue_paise|inr }}</div>
+        </div>
+      </div>
+      <div class="col-md-6 col-xl-3">
+        <div class="metric-card">
+          <span class="metric-label">Monthly Earnings</span>
+          <div class="metric-value">{{ finances.monthly_earnings_paise|inr }}</div>
+        </div>
+      </div>
+      <div class="col-md-6 col-xl-3">
+        <div class="metric-card">
+          <span class="metric-label">Weekly Earnings</span>
+          <div class="metric-value">{{ finances.weekly_earnings_paise|inr }}</div>
+        </div>
+      </div>
+      <div class="col-md-6 col-xl-3">
+        <div class="metric-card">
+          <span class="metric-label">Pending vs Successful</span>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <span class="badge badge-success-soft">Success: {{ finances.status_counts.success }}</span>
+            <span class="badge badge-warning-soft">Pending: {{ finances.status_counts.pending }}</span>
+            <span class="badge badge-danger-soft">Failed: {{ finances.status_counts.failed }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-4 analytics-row">
+      <div class="col-xl-8">
+        <div class="panel-surface p-3 p-lg-4 chart-panel">
+          <h2 class="h5 mb-3">Money Earned per Day (Last 30 Days)</h2>
+          <div class="chart-wrap">
+            <canvas id="revenueChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        <div class="panel-surface p-3 p-lg-4 health-panel">
+          <h2 class="h5 mb-3">System Health</h2>
+          <div class="d-grid gap-2 health-grid">
+            <div class="health-row d-flex justify-content-between"><span>Server Uptime</span><strong>{{ health.uptime_text }}</strong></div>
+            <div class="health-row d-flex justify-content-between"><span>Database Size</span><strong>{{ health.database_size }}</strong></div>
+            <div class="health-row"><div class="muted-xs">DB Path</div><div class="small text-break">{{ health.database_path }}</div></div>
+            <div class="health-row d-flex justify-content-between"><span>Total Users</span><strong>{{ metrics.total_users }}</strong></div>
+            <div class="health-row d-flex justify-content-between"><span>Premium Users</span><strong>{{ metrics.total_premium_users }}</strong></div>
+            <div class="health-row d-flex justify-content-between"><span>Joined (24h)</span><strong>{{ metrics.joined_last_24h }}</strong></div>
+            <div class="health-row d-flex justify-content-between"><span>Google Registrations</span><strong>{{ metrics.google_users }}</strong></div>
+            <div class="health-row d-flex justify-content-between"><span>Manual Registrations</span><strong>{{ metrics.manual_users }}</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel-surface p-3 p-lg-4 mb-4">
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <h2 class="h5 mb-0">Transaction List</h2>
+        <form method="get" class="d-flex align-items-center gap-2">
+          <input type="hidden" name="q" value="{{ filters.q }}">
+          <input type="hidden" name="premium" value="{{ filters.premium }}">
+          <input type="hidden" name="status" value="{{ filters.status }}">
+          <input type="hidden" name="source" value="{{ filters.source }}">
+          <label class="small text-secondary">Status</label>
+          <select class="form-select form-select-sm" name="payment_status" onchange="this.form.submit()">
+            <option value="all" {% if filters.payment_status == 'all' %}selected{% endif %}>All</option>
+            <option value="success" {% if filters.payment_status == 'success' %}selected{% endif %}>Success</option>
+            <option value="failed" {% if filters.payment_status == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="pending" {% if filters.payment_status == 'pending' %}selected{% endif %}>Pending</option>
+          </select>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>User Email</th>
+              <th>Amount (₹)</th>
+              <th>Plan Taken</th>
+              <th>Razorpay ID</th>
+              <th>Order ID</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Days Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in payments %}
+            <tr>
+              <td>{{ row.user_email }}</td>
+              <td>{{ row.payment.amount_paise|inr }}</td>
+              <td>{{ row.plan_taken }} <span class="muted-xs">({{ row.duration_label }})</span></td>
+              <td class="small text-break">{{ row.razorpay_id }}</td>
+              <td class="small text-break">{{ row.payment.razorpay_order_id }}</td>
+              <td>{{ row.payment_date|dt_local }}</td>
+              <td>
+                {% if row.payment.status == 'success' %}
+                <span class="badge badge-success-soft">Success</span>
+                {% elif row.payment.status == 'failed' %}
+                <span class="badge badge-danger-soft">Failed</span>
+                {% else %}
+                <span class="badge badge-warning-soft">Pending</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if row.days_remaining is none %}
+                <span class="text-secondary">-</span>
+                {% elif row.expires_soon %}
+                <span class="badge badge-danger-soft">{{ row.days_remaining }} day(s)</span>
+                {% else %}
+                <span class="badge badge-success-soft">{{ row.days_remaining }} day(s)</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-secondary py-4">No transactions found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel-surface p-3 p-lg-4 mb-4">
+      <h2 class="h5 mb-3">User Insights + Subscription Control</h2>
+      <form method="get" class="row g-3 align-items-end mb-3">
+        <div class="col-md-4">
+          <label class="form-label">Search (name/email)</label>
+          <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="Search user">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Premium</label>
+          <select class="form-select" name="premium">
+            <option value="all" {% if filters.premium == 'all' %}selected{% endif %}>All</option>
+            <option value="premium" {% if filters.premium == 'premium' %}selected{% endif %}>Premium</option>
+            <option value="free" {% if filters.premium == 'free' %}selected{% endif %}>Free</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Account</label>
+          <select class="form-select" name="status">
+            <option value="all" {% if filters.status == 'all' %}selected{% endif %}>All</option>
+            <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active</option>
+            <option value="banned" {% if filters.status == 'banned' %}selected{% endif %}>Banned</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Source</label>
+          <select class="form-select" name="source">
+            <option value="all" {% if filters.source == 'all' %}selected{% endif %}>All</option>
+            <option value="google" {% if filters.source == 'google' %}selected{% endif %}>Google</option>
+            <option value="manual" {% if filters.source == 'manual' %}selected{% endif %}>Manual</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-grid">
+          <button class="btn btn-success" type="submit"><i class="bi bi-funnel me-1"></i>Apply</button>
+        </div>
+      </form>
+
+      <div class="table-wrap">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Source</th>
+              <th>Premium</th>
+              <th>Premium Start</th>
+              <th>Premium Expiry</th>
+              <th>Time Remaining</th>
+              <th>PDFs Processed</th>
+              <th>Account</th>
+              <th>Last Login</th>
+              <th>Login Issues</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in users %}
+            <tr>
+              <td>{{ row.user.id }}</td>
+              <td>{{ row.user.full_name }}</td>
+              <td>{{ row.user.email }}</td>
+              <td>
+                <span class="badge {{ 'bg-primary-subtle text-primary-emphasis' if row.registration_source == 'Google' else 'bg-secondary-subtle text-secondary-emphasis' }}">
+                  {{ row.registration_source }}
+                </span>
+              </td>
+              <td>
+                <span class="badge {{ 'badge-success-soft' if row.is_premium else 'bg-dark border' }}">{{ 'Yes' if row.is_premium else 'No' }}</span>
+              </td>
+              <td>{{ row.subscription.started_at|dt_local if row.subscription else '-' }}</td>
+              <td>{{ row.subscription.expires_at|dt_local if row.subscription else '-' }}</td>
+              <td>
+                {% if row.expires_soon %}
+                <span class="badge badge-danger-soft">{{ row.time_remaining }}</span>
+                {% elif row.time_remaining == '-' %}
+                <span class="text-secondary">-</span>
+                {% else %}
+                <span class="badge badge-success-soft">{{ row.time_remaining }}</span>
+                {% endif %}
+              </td>
+              <td>{{ row.pdf_processed_count }}</td>
+              <td>
+                <span class="badge {{ 'badge-success-soft' if row.account_status == 'Active' else 'badge-danger-soft' }}">{{ row.account_status }}</span>
+              </td>
+              <td>{{ row.user.last_login_at|dt_local }}</td>
+              <td>
+                {% if row.issue_state == 'Banned' %}
+                <span class="badge badge-danger-soft">Banned</span>
+                {% elif row.issue_state == 'Unverified' %}
+                <span class="badge badge-danger-soft">Unverified</span>
+                {% else %}
+                <span class="badge badge-success-soft">OK</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <div class="d-flex flex-wrap justify-content-end gap-1 mb-1">
+                  <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}">
+                    <input type="hidden" name="action" value="toggle_premium">
+                    <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                    <button class="btn btn-sm {{ 'btn-outline-warning' if row.is_premium else 'btn-outline-success' }}" type="submit">{{ 'Revoke' if row.is_premium else 'Grant' }}</button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}">
+                    <input type="hidden" name="action" value="toggle_ban">
+                    <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                    <button class="btn btn-sm {{ 'btn-outline-success' if row.account_status == 'Banned' else 'btn-outline-danger' }}" type="submit">{{ 'Unban' if row.account_status == 'Banned' else 'Ban' }}</button>
+                  </form>
+                </div>
+                <form method="post" action="{{ url_for('admin_user_action', user_id=row.user.id) }}" class="d-flex justify-content-end gap-1">
+                  <input type="hidden" name="action" value="extend_premium">
+                  <input type="hidden" name="return_to" value="{{ request.full_path }}">
+                  <input class="form-control form-control-sm mini-input" type="number" name="extra_months" min="0" placeholder="Months">
+                  <input class="form-control form-control-sm mini-input" type="number" name="extra_days" min="0" placeholder="Days">
+                  <button class="btn btn-sm btn-outline-success" type="submit">Extend</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-center text-secondary py-4">No users found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script>
+    const labels = {{ finances.chart_labels|tojson }};
+    const values = {{ finances.chart_values_inr|tojson }};
+    const canvas = document.getElementById('revenueChart');
+    if (canvas) {
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'INR per day',
+            data: values,
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.16)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2,
+            pointHoverRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1' } } },
+          scales: {
+            x: {
+              ticks: {
+                color: '#94a3b8',
+                autoSkip: true,
+                maxTicksLimit: 8,
+                maxRotation: 0,
+                minRotation: 0
+              },
+              grid: { color: 'rgba(148, 163, 184, 0.15)' }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#94a3b8' },
+              grid: { color: 'rgba(148, 163, 184, 0.15)' }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

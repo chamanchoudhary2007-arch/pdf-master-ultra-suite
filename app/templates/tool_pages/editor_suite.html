@@ -1,0 +1,116 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+{% if tool.tool_key == 'create_forms' %}
+<h2 class="h4 mb-2">Create Forms</h2>
+<p class="text-secondary mb-4">Add form-like labeled boxes using precise coordinates. Format: <code>Label|x|y|width|height|page(optional)</code>.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+  <div class="col-12">
+    <label class="form-label">Form fields</label>
+    <textarea class="form-control" name="form_fields" rows="8" placeholder="Full Name|72|640|220|24|1&#10;Phone Number|72|590|220|24|1&#10;Address|72|540|360|50|1" required></textarea>
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Create form layout</button>
+  </div>
+</form>
+{% else %}
+<h2 class="h4 mb-2">PDF Editor</h2>
+<p class="text-secondary mb-3">Add text, lines, boxes, and image signatures. You can use quick fields or the visual editor board.</p>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3" id="pdfEditorForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="editor_actions" id="editorActions">
+
+  <div class="col-12">
+    <label class="form-label">PDF file</label>
+    <input class="form-control" type="file" name="document" accept=".pdf" required>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="editor-board-wrap">
+      <div class="editor-board-toolbar d-flex flex-wrap gap-2 mb-2">
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-editor-add="text">Add text</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-editor-add="line">Add line</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-editor-add="rect">Add box</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-editor-clear>Undo</button>
+      </div>
+      <div class="editor-board" id="editorBoard" data-editor-board></div>
+      <div class="form-text mt-2">Visual board uses page-1 coordinate mapping for quick edits.</div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="row g-2">
+      <div class="col-12">
+        <label class="form-label small text-muted">Text</label>
+        <input class="form-control" type="text" name="text" placeholder="Approved / Signed / Notes">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Page</label>
+        <input class="form-control" type="number" name="page" value="1" min="1">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Font size</label>
+        <input class="form-control" type="number" name="font_size" value="14" min="6" max="120">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">X</label>
+        <input class="form-control" type="number" name="x" value="72" min="0">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Y</label>
+        <input class="form-control" type="number" name="y" value="120" min="0">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Color</label>
+        <input class="form-control form-control-color w-100" type="color" name="color" value="#18342b">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Line length</label>
+        <input class="form-control" type="number" name="line_length" value="200" min="10">
+      </div>
+      <div class="col-6 form-check ms-2 mt-2">
+        <input class="form-check-input" type="checkbox" name="add_box" id="addBoxQuick">
+        <label class="form-check-label" for="addBoxQuick">Quick box</label>
+      </div>
+      <div class="col-6 form-check ms-2 mt-2">
+        <input class="form-check-input" type="checkbox" name="add_line" id="addLineQuick">
+        <label class="form-check-label" for="addLineQuick">Quick line</label>
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Box width</label>
+        <input class="form-control" type="number" name="box_width" value="180" min="10">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Box height</label>
+        <input class="form-control" type="number" name="box_height" value="50" min="10">
+      </div>
+      <div class="col-12">
+        <label class="form-label small text-muted">Overlay image / signature (optional)</label>
+        <input class="form-control" type="file" name="editor_image" accept="image/*">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Image width</label>
+        <input class="form-control" type="number" name="image_width" value="160" min="10">
+      </div>
+      <div class="col-6">
+        <label class="form-label small text-muted">Image height</label>
+        <input class="form-control" type="number" name="image_height" value="70" min="10">
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary">Apply edits</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+window.setupEditorBoard && window.setupEditorBoard();
+</script>
+{% endblock %}

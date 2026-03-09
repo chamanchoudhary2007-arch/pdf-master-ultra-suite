@@ -1,0 +1,78 @@
+﻿{% extends 'base.html' %}
+{% block title %}Advanced OCR Suite | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">OCR upgrade</span>
+  <h1 class="h3 mb-2">Advanced OCR Suite</h1>
+  <p class="text-secondary mb-0">Searchable PDF, multilingual OCR, image cleanup, and table extraction outputs.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Run OCR</h2>
+        <form method="post" enctype="multipart/form-data" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input class="form-control" type="file" name="document" required>
+          <input class="form-control" type="text" name="languages" value="eng+hin" placeholder="Languages e.g. eng+hin">
+          <div class="small text-muted">Output formats</div>
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="output_formats" value="txt" checked> TXT</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="output_formats" value="searchable_pdf"> Searchable PDF</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="output_formats" value="docx"> DOCX</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="output_formats" value="csv"> CSV</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="output_formats" value="xlsx"> XLSX</label>
+          </div>
+          <div class="small text-muted mt-2">Image cleanup options</div>
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="deskew"> Deskew</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="denoise"> Denoise</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="contrast_boost"> Contrast boost</label>
+            <label class="form-check"><input class="form-check-input" type="checkbox" name="black_white"> Black/white</label>
+          </div>
+          <button class="btn btn-primary" type="submit">Process OCR</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Latest result</h2>
+        {% if latest_result %}
+        <div class="vstack gap-2">
+          <div><strong>Formats:</strong> {{ latest_result.formats|join(', ') }}</div>
+          <div><strong>Languages:</strong> {{ latest_result.languages }}</div>
+          <div><strong>Output files:</strong> {{ latest_result.output_count }}</div>
+          <div><strong>Confidence:</strong> {{ latest_result.confidence if latest_result.confidence is not none else 'N/A' }}</div>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.download_file', file_id=latest_result.output_file.id) }}">Download result</a>
+        </div>
+        {% else %}
+        <div class="text-secondary">Run OCR to view output summary.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Recent OCR outputs</h2>
+    <div class="list-group list-group-flush">
+      {% for file in recent_outputs %}
+      <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+        <div>
+          <div class="fw-medium">{{ file.original_name }}</div>
+          <div class="small text-muted">{{ file.created_at.strftime('%d %b %H:%M') }}</div>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_file', file_id=file.id) }}">Download</a>
+      </div>
+      {% else %}
+      <div class="text-secondary">No OCR outputs yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

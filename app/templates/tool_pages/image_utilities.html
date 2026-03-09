@@ -1,0 +1,277 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<div class="image-suite-head mb-3">
+  <div>
+    <span class="eyebrow mb-2">Premium Studio</span>
+    <h2 class="h4 mb-1">Compress, Resize & Edit Pictures</h2>
+    <p class="text-secondary mb-0">Single workspace for exact KB targeting, official photo presets, format conversions, OCR, metadata editing, and advanced image effects.</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="vstack gap-4" id="imageUtilityForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="image_action" id="imageAction" value="resize_pixel">
+  <input type="hidden" name="preset_key" id="imagePreset" value="">
+  <input type="hidden" name="target_format" id="imageTargetFormat" value="jpg">
+  <input type="hidden" name="unit" id="imageUnit" value="px">
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h3 class="h6 mb-3">Upload files</h3>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <label class="form-label">Single image (required for most tools)</label>
+          <input class="form-control" type="file" name="image" accept="image/*">
+        </div>
+        <div class="col-lg-6">
+          <label class="form-label">Multiple images (join / images to PDF)</label>
+          <input class="form-control" type="file" name="images" accept="image/*" multiple>
+        </div>
+        <div class="col-lg-6">
+          <label class="form-label">PDF input (for PDF to JPG/PNG)</label>
+          <input class="form-control" type="file" name="pdf_document" accept=".pdf">
+        </div>
+        <div class="col-lg-3">
+          <label class="form-label">Signature image (for merge)</label>
+          <input class="form-control" type="file" name="signature_image" accept="image/*">
+        </div>
+        <div class="col-lg-3">
+          <label class="form-label">Logo image (for add logo)</label>
+          <input class="form-control" type="file" name="logo_image" accept="image/*">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h3 class="h6 mb-3">Control values</h3>
+      <div class="row g-3">
+        <div class="col-md-2"><label class="form-label">Width</label><input class="form-control" type="number" name="width" value="1200" min="1"></div>
+        <div class="col-md-2"><label class="form-label">Height</label><input class="form-control" type="number" name="height" value="1600" min="1"></div>
+        <div class="col-md-2"><label class="form-label">Quality</label><input class="form-control" type="number" name="quality" value="78" min="20" max="98"></div>
+        <div class="col-md-2"><label class="form-label">Target KB</label><input class="form-control" type="number" name="target_kb" id="imageTargetKb" value="100" min="5"></div>
+        <div class="col-md-2"><label class="form-label">Target MB</label><input class="form-control" type="number" step="0.1" name="target_mb" value="0"></div>
+        <div class="col-md-2"><label class="form-label">DPI</label><input class="form-control" type="number" name="dpi" value="300" min="72" max="1200"></div>
+
+        <div class="col-md-2"><label class="form-label">Angle</label><input class="form-control" type="number" name="angle" value="90" min="-360" max="360"></div>
+        <div class="col-md-2"><label class="form-label">Blur radius</label><input class="form-control" type="number" step="0.5" name="blur_radius" value="3.0" min="0.5"></div>
+        <div class="col-md-2"><label class="form-label">Pixel size</label><input class="form-control" type="number" name="pixel_size" value="10" min="2"></div>
+        <div class="col-md-2"><label class="form-label">Motion radius</label><input class="form-control" type="number" name="motion_radius" value="11" min="3"></div>
+        <div class="col-md-2"><label class="form-label">B/W threshold</label><input class="form-control" type="number" name="bw_threshold" value="145" min="0" max="255"></div>
+        <div class="col-md-2"><label class="form-label">Pixel art factor</label><input class="form-control" type="number" name="pixel_art_factor" value="12" min="2"></div>
+
+        <div class="col-md-3"><label class="form-label">Text / Watermark</label><input class="form-control" type="text" name="text" value="PDFMaster Ultra Suite"></div>
+        <div class="col-md-2"><label class="form-label">Person name</label><input class="form-control" type="text" name="person_name" placeholder="Full Name"></div>
+        <div class="col-md-2"><label class="form-label">DOB</label><input class="form-control" type="text" name="dob" placeholder="DD-MM-YYYY"></div>
+        <div class="col-md-1"><label class="form-label">X</label><input class="form-control" type="number" name="x" value="20"></div>
+        <div class="col-md-1"><label class="form-label">Y</label><input class="form-control" type="number" name="y" value="20"></div>
+        <div class="col-md-1"><label class="form-label">Rows</label><input class="form-control" type="number" name="split_rows" value="2" min="1"></div>
+        <div class="col-md-1"><label class="form-label">Cols</label><input class="form-control" type="number" name="split_cols" value="2" min="1"></div>
+        <div class="col-md-2">
+          <label class="form-label">Join direction</label>
+          <select class="form-select" name="join_direction">
+            <option value="vertical">Vertical</option>
+            <option value="horizontal">Horizontal</option>
+          </select>
+        </div>
+        <div class="col-md-2"><label class="form-label">Logo width</label><input class="form-control" type="number" name="logo_width" value="120" min="10"></div>
+        <div class="col-md-2"><label class="form-label">Upscale factor</label><input class="form-control" type="number" step="0.1" name="upscale_factor" value="2.0" min="1.1"></div>
+        <div class="col-md-3"><label class="form-label">Metadata title</label><input class="form-control" type="text" name="metadata_title"></div>
+        <div class="col-md-3"><label class="form-label">Metadata author</label><input class="form-control" type="text" name="metadata_author"></div>
+
+        <div class="col-md-1"><label class="form-label">Crop X</label><input class="form-control" type="number" name="crop_x" value="0"></div>
+        <div class="col-md-1"><label class="form-label">Crop Y</label><input class="form-control" type="number" name="crop_y" value="0"></div>
+        <div class="col-md-1"><label class="form-label">Crop W</label><input class="form-control" type="number" name="crop_w" value="500" min="1"></div>
+        <div class="col-md-1"><label class="form-label">Crop H</label><input class="form-control" type="number" name="crop_h" value="500" min="1"></div>
+        <div class="col-md-2"><label class="form-label">Size value</label><input class="form-control" type="number" step="0.01" name="size_value" value="1"></div>
+        <div class="col-md-2">
+          <label class="form-label">From</label>
+          <select class="form-select" name="size_from">
+            <option value="mb">MB</option>
+            <option value="kb">KB</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">To</label>
+          <select class="form-select" name="size_to">
+            <option value="kb">KB</option>
+            <option value="mb">MB</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+        <h3 class="h6 mb-0">All image tools</h3>
+        <input id="imageToolSearch" class="form-control form-control-sm image-tool-search" type="search" placeholder="Search tool name...">
+      </div>
+
+      <section class="image-tool-section">
+        <h4>Exact Target Sizes</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="5">Compress to 5KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="15">Compress to 15KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="20">Compress to 20KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="25">JPEG to 25KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="30">JPEG to 30KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="40">JPEG to 40KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="50">Compress to 50KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="100">Compress to 100KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="150">JPEG to 150KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="200">Compress to 200KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="300">JPEG to 300KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="500">JPEG to 500KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="1024">Compress to 1MB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="compress_target" data-target-kb="2048">Compress to 2MB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="increase_target" data-target-kb="100">Increase image to 100KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="increase_target" data-target-kb="500">Increase image to 500KB</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Resize Official Sizes</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="a4_size">A4 Size</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="ssc_photo">SSC Photo Resize</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="pan_card">PAN Card</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="upsc_photo">UPSC Photo</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="psc_photo">PSC Photo</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Passport & ID Photo Sizes</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="passport_photo">Passport Photo Maker</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="sign_6x2cm">Resize Sign 6cm x 2cm</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="profile_3_5x4_5cm">3.5cm x 4.5cm</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="signature_50x20mm">Signature 50mm x 20mm</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="size_35x45mm">35mm x 45mm</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="size_2x2_inch">2 x 2 Inch</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="size_3_4_inch">3 x 4 Inch</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="size_4_6_inch">4 x 6 Inch</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="size_600x600">600 x 600 Pixels</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Resize For Social Media</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="instagram_no_crop">Instagram (No Crop)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="instagram_grid">Instagram Grid Maker</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="whatsapp_dp">WhatsApp DP</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_preset" data-preset="youtube_banner">YouTube Banner</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="upscale_ai">Zoom Out / Upscale Image</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Format Conversions</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_text">OCR Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="convert" data-target-format="jpg">Image to JPG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="convert" data-target-format="jpg">HEIC to JPG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="convert" data-target-format="jpg">WEBP to JPG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="convert" data-target-format="png">JPEG to PNG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="convert" data-target-format="jpg">PNG to JPEG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_text">JPG to Text</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_text">PNG to Text</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Image & PDF Conversion</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf">Image to PDF</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="pdf_to_images" data-target-format="jpg">PDF to JPG</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf" data-preset="under_50kb" data-target-kb="50">JPG to PDF (Under 50KB)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf" data-preset="under_100kb" data-target-kb="100">JPG to PDF (Under 100KB)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf" data-preset="under_200kb" data-target-kb="200">JPG to PDF (Under 200KB)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf" data-preset="under_300kb" data-target-kb="300">JPG to PDF (Under 300KB)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="image_to_pdf" data-preset="under_500kb" data-target-kb="500">JPG to PDF (Under 500KB)</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Basic Editing</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="blur_background">Blur Background</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="remove_background">Remove Background</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="remove_object">Remove Object from Photo</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="add_name_dob">Add Name & DOB on Photo</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="rotate">Rotate Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="flip">Flip Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="watermark">Watermark Images</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="crop_custom">Freehand Crop</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="crop_circle">Circle Crop</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="crop_square">Square Crop</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="merge_photo_signature">Merge Photo & Signature</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="join_images">Join Multiple Images</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="split_image">Split Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="color_picker">Image Color Picker</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="metadata_edit">Edit Metadata</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="metadata_view">View Metadata</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="metadata_remove">Remove Metadata</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="crop_custom">Crop PNG</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>Blur, Pixelate & Special Effects</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="beautify">Beautify Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="unblur">Unblur Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="blur_image">Blur Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="blur_face">Blur Face</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="pixelate_image">Pixelate Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="pixelate_face">Pixelate Face</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="censor_photo">Censor Photo</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="motion_blur">Motion Blur</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="grayscale">Grayscale Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="black_white">Black & White</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="pixel_art">Picture to Pixel Art</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="retouch">Retouch Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="add_text">Add Text to Image</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="add_logo">Add Logo to Image</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>DPI & Quality</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="super_resolution">Increase Image Quality</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="dpi_convert">Convert DPI (200/300/600)</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="dpi_check">Check Image DPI</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="upscale_ai">Super Resolution</button>
+        </div>
+      </section>
+
+      <section class="image-tool-section">
+        <h4>General Resizing & Utilities</h4>
+        <div class="image-tool-grid">
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_pixel" data-unit="px">Resize Image by Pixel</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_unit" data-unit="cm">Resize in Centimeters</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_unit" data-unit="mm">Resize in Millimeters</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="resize_unit" data-unit="inch">Resize in Inches</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="size_convert" data-size-from="mb" data-size-to="kb">Convert MB to KB</button>
+          <button type="button" class="btn btn-outline-secondary image-action-tile" data-image-action="size_convert" data-size-from="kb" data-size-to="mb">Convert KB to MB</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="submit">Run selected action</button>
+    <span class="text-secondary small align-self-center">Tip: Click any tool button above to auto-select action and run immediately.</span>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+window.setupImageUtilityActions && window.setupImageUtilityActions();
+</script>
+{% endblock %}

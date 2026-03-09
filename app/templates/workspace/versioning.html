@@ -1,0 +1,97 @@
+﻿{% extends 'base.html' %}
+{% block title %}Version History | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <span class="eyebrow">Version compare</span>
+  <h1 class="h3 mb-2">Document version history</h1>
+  <p class="text-secondary mb-0">Store versions, compare two revisions, and download structured diff reports.</p>
+</section>
+
+<section class="row g-4 mb-4">
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Create group</h2>
+        <form method="post" class="vstack gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="create_group">
+          <input class="form-control" type="text" name="group_name" placeholder="Group name" required>
+          <textarea class="form-control" name="group_description" rows="2" placeholder="Description"></textarea>
+          <button class="btn btn-primary" type="submit">Create</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Add version</h2>
+        <form method="post" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add_version">
+          <div class="col-md-4"><select class="form-select" name="group_id" required>{% for group in groups %}<option value="{{ group.id }}">{{ group.name }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><select class="form-select" name="file_id" required>{% for file in files %}<option value="{{ file.id }}">{{ file.original_name }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><input class="form-control" type="text" name="version_label" placeholder="v1.0"></div>
+          <div class="col-12"><textarea class="form-control" name="notes" rows="2" placeholder="Notes"></textarea></div>
+          <div class="col-12"><button class="btn btn-primary" type="submit">Add version</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Compare versions</h2>
+    <form method="post" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="compare">
+      <div class="col-md-5"><label class="form-label">Version A</label><select class="form-select" name="version_a_id" required>{% for version in versions %}<option value="{{ version.id }}">{{ version.group.name }} - {{ version.version_label }} ({{ version.file.original_name }})</option>{% endfor %}</select></div>
+      <div class="col-md-5"><label class="form-label">Version B</label><select class="form-select" name="version_b_id" required>{% for version in versions %}<option value="{{ version.id }}">{{ version.group.name }} - {{ version.version_label }} ({{ version.file.original_name }})</option>{% endfor %}</select></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Compare</button></div>
+    </form>
+  </div>
+</section>
+
+<section class="row g-4">
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Groups + versions</h2>
+        {% for group in groups %}
+        <article class="border rounded p-3 mb-2">
+          <div class="fw-medium">{{ group.name }}</div>
+          <div class="small text-muted mb-2">{{ group.description or 'No description' }}</div>
+          <ul class="small mb-0">
+            {% for version in group.versions.all() %}
+            <li>{{ version.version_label }} - {{ version.file.original_name }}</li>
+            {% else %}<li class="text-muted">No versions yet.</li>{% endfor %}
+          </ul>
+        </article>
+        {% else %}
+        <div class="text-secondary">No groups yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Recent compare reports</h2>
+        <div class="list-group list-group-flush">
+          {% for row in comparisons %}
+          <div class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-medium">{{ row.version_a.version_label }} vs {{ row.version_b.version_label }}</div>
+              <div class="small text-muted">{{ row.created_at.strftime('%d %b %Y %H:%M') }}</div>
+            </div>
+            {% if row.report_file_id %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.download_file', file_id=row.report_file_id) }}">Download</a>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-secondary">No compare reports yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

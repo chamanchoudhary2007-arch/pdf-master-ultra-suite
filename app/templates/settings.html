@@ -1,0 +1,848 @@
+{% extends 'base.html' %}
+{% block title %}Settings | {{ APP_NAME }}{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <div class="dashboard-topbar">
+    <div>
+      <span class="eyebrow">Profile</span>
+      <h1 class="h2 mb-1">Account settings</h1>
+      <p class="text-secondary mb-0">Manage profile details, premium plan, and referral rewards from one place.</p>
+    </div>
+  </div>
+</section>
+
+{% set _requested_settings_tab = (request.args.get('tab', '') or '')|lower %}
+{% set selected_settings_tab = _requested_settings_tab if _requested_settings_tab in ['billing', 'profile', 'security', 'refer', 'share'] else '' %}
+<section class="row g-4" data-settings-root data-settings-default-tab="{{ selected_settings_tab }}">
+  <div class="col-lg-3">
+    <div class="card border-0 shadow-sm settings-sidebar">
+      <div class="card-body p-3">
+        <div class="small text-uppercase text-muted fw-semibold mb-2">Settings menu</div>
+        <div class="settings-nav-list">
+          <a id="settings-tab-billing" href="{{ url_for('main.settings', tab='billing', _anchor='billing') }}" class="settings-nav-link {{ 'is-active' if selected_settings_tab == 'billing' else '' }}" data-settings-tab="billing" role="tab" aria-controls="billing" aria-selected="{{ 'true' if selected_settings_tab == 'billing' else 'false' }}">
+            <i class="bi bi-credit-card-2-front"></i>
+            <span>Premium billing</span>
+          </a>
+          <a id="settings-tab-profile" href="{{ url_for('main.settings', tab='profile', _anchor='profile-settings') }}" class="settings-nav-link {{ 'is-active' if selected_settings_tab == 'profile' else '' }}" data-settings-tab="profile" role="tab" aria-controls="profile-settings" aria-selected="{{ 'true' if selected_settings_tab == 'profile' else 'false' }}">
+            <i class="bi bi-person-circle"></i>
+            <span>Profile</span>
+          </a>
+          <a id="settings-tab-security" href="{{ url_for('main.settings', tab='security', _anchor='profile-security') }}" class="settings-nav-link {{ 'is-active' if selected_settings_tab == 'security' else '' }}" data-settings-tab="security" role="tab" aria-controls="profile-security" aria-selected="{{ 'true' if selected_settings_tab == 'security' else 'false' }}">
+            <i class="bi bi-shield-lock"></i>
+            <span>Secret Key</span>
+          </a>
+          <a id="settings-tab-refer" href="{{ url_for('main.settings', tab='refer', _anchor='refer-earn') }}" class="settings-nav-link {{ 'is-active' if selected_settings_tab == 'refer' else '' }}" data-settings-tab="refer" role="tab" aria-controls="refer-earn" aria-selected="{{ 'true' if selected_settings_tab == 'refer' else 'false' }}">
+            <i class="bi bi-gift"></i>
+            <span>Refer & Earn</span>
+          </a>
+          <a id="settings-tab-share" href="{{ url_for('main.settings', tab='share', _anchor='share-with-friends') }}" class="settings-nav-link {{ 'is-active' if selected_settings_tab == 'share' else '' }}" data-settings-tab="share" role="tab" aria-controls="share-with-friends" aria-selected="{{ 'true' if selected_settings_tab == 'share' else 'false' }}">
+            <i class="bi bi-share"></i>
+            <span>Share with friends</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-9">
+    <section class="card border-0 shadow-sm mb-4 settings-empty-state" data-settings-empty-state {% if selected_settings_tab %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body">
+        <div class="settings-empty-state-body">
+          <span class="settings-empty-icon" aria-hidden="true"><i class="bi bi-sliders2"></i></span>
+          <h2 class="h5 mb-2">Choose a settings section</h2>
+          <p class="text-secondary mb-0">Select an option from the left settings menu to continue.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4 billing-shell" id="billing" data-settings-panel="billing" data-settings-primary-anchor="billing" role="tabpanel" aria-labelledby="settings-tab-billing" {% if selected_settings_tab != 'billing' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body p-0">
+        <div class="billing-hero">
+          <div class="billing-hero-main">
+            <span class="eyebrow">Premium access</span>
+            <h2 class="billing-title">Upgrade to Premium</h2>
+            <p class="billing-subtitle mb-3">
+              Unlock faster tools, higher limits, AI features, and an ad-free experience for your daily document workflows.
+            </p>
+            <ul class="billing-trust-points mb-0">
+              <li>
+                <i class="bi bi-shield-check"></i>
+                <span>{{ 'Secure checkout via Razorpay' if payment_mode == 'live' else 'Demo checkout mode (no real charge)' }}</span>
+              </li>
+              <li><i class="bi bi-lightning-charge"></i><span>Activation occurs only after verified payment state</span></li>
+              <li><i class="bi bi-people"></i><span>Used by students and daily productivity users</span></li>
+            </ul>
+          </div>
+          <div class="billing-hero-badge">
+            <span class="premium-orb" aria-hidden="true"><i class="bi bi-stars"></i></span>
+            <span class="small text-muted">Trusted by students and creators</span>
+          </div>
+        </div>
+
+        {% if active_subscription_summary %}
+        <div class="active-subscription-shell">
+          <div class="active-subscription-head">
+            <div>
+              <div class="small text-uppercase text-muted fw-semibold mb-1">Current subscription</div>
+              <h3 class="h5 mb-1">{{ active_subscription_summary.plan_name }}</h3>
+              <p class="text-secondary mb-0">{{ active_subscription_summary.renewal_hint }}</p>
+            </div>
+            <span class="subscription-status status-{{ active_subscription_summary.status_tone }}">
+              {{ active_subscription_summary.status_label }}
+            </span>
+          </div>
+          <div class="subscription-metrics">
+            <div class="metric-inline">
+              <span>Started on</span>
+              <strong>{{ active_subscription_summary.started_at.strftime('%d %b %Y') if active_subscription_summary.started_at else '-' }}</strong>
+            </div>
+            <div class="metric-inline">
+              <span>Expires on</span>
+              <strong>{{ active_subscription_summary.expires_at.strftime('%d %b %Y') if active_subscription_summary.expires_at else '-' }}</strong>
+            </div>
+            <div class="metric-inline">
+              <span>Days remaining</span>
+              <strong>{{ active_subscription_summary.days_remaining }}</strong>
+            </div>
+          </div>
+          <div class="subscription-actions">
+            <a class="btn btn-sm btn-outline-secondary" href="#billing-plans" data-plan-focus="{{ active_subscription_summary.plan_key }}">Renew current plan</a>
+            <a class="btn btn-sm btn-primary" href="#billing-plans">View all plans</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="billing-benefits-shell">
+          {% if payment_mode == 'demo' %}
+          <div class="alert alert-warning mb-3">
+            Payment mode is currently <strong>demo</strong>. Checkout actions simulate success/failure and do not charge real money.
+          </div>
+          {% endif %}
+          <h3 class="h6 mb-2">Premium benefits</h3>
+          <div class="benefit-grid">
+            {% for benefit in premium_benefits %}
+            <div class="benefit-pill"><i class="bi bi-check2-circle"></i>{{ benefit }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="billing-savings-strip">
+          <i class="bi bi-piggy-bank" aria-hidden="true"></i>
+          <span>Longer plans reduce effective daily pricing. 3 Month is the most popular option for regular users.</span>
+        </div>
+
+        <div class="plan-grid-wrap" id="billing-plans">
+          <div class="row g-3">
+            {% for plan in plan_view_models %}
+            <div class="col-md-6 col-xl-4">
+              <article class="plan-card plan-card-premium h-100 {{ 'is-recommended' if plan.is_recommended else '' }} {{ 'is-best-value' if plan.is_best_value else '' }} {{ 'is-active-plan' if plan.is_active_plan else '' }} {{ 'is-highlighted' if plan.is_highlighted else '' }}" data-plan-card data-plan-key="{{ plan.plan_key }}" {% if plan.is_recommended %}data-plan-recommended="true"{% endif %}>
+                {% if plan.badge %}
+                <span class="plan-ribbon">{{ plan.badge }}</span>
+                {% endif %}
+                <div class="plan-topline">
+                  <span class="plan-label">{{ plan.label or plan.name }}</span>
+                  {% if plan.is_active_plan %}
+                  <span class="plan-current-badge">Current</span>
+                  {% endif %}
+                </div>
+                <h3 class="plan-title">{{ plan.name }}</h3>
+                <p class="plan-caption">{{ plan.tagline }}</p>
+                <div class="plan-price">{{ plan.price_paise|money }}</div>
+                <div class="plan-per-day">Only ₹{{ '%.2f'|format(plan.per_day_rupees) }}/day</div>
+                <div class="plan-savings">
+                  {% if plan.savings_percent > 0 %}
+                  Save {{ plan.savings_percent }}% vs 1 Month plan
+                  {% else %}
+                  Flexible starter pricing
+                  {% endif %}
+                </div>
+                <ul class="plan-mini-features">
+                  {% for bullet in plan.benefits[:5] %}
+                  <li><i class="bi bi-check2"></i><span>{{ bullet }}</span></li>
+                  {% endfor %}
+                </ul>
+                <form method="post" action="{{ url_for('main.subscribe') }}" class="razorpay-upgrade-form mt-auto" data-plan-key="{{ plan.plan_key }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="plan_key" value="{{ plan.plan_key }}">
+                  <button class="btn btn-primary plan-cta w-100" type="button" data-upgrade-button data-default-label="{{ plan.button_label }}">
+                    {{ plan.button_label }}
+                  </button>
+                </form>
+              </article>
+            </div>
+            {% endfor %}
+
+            <div class="col-md-6 col-xl-4">
+              <article class="plan-card plan-card-premium plan-card-custom h-100" data-plan-card data-plan-key="pro_custom">
+                <div class="plan-topline">
+                  <span class="plan-label">Custom</span>
+                  <span class="plan-current-badge muted">Flexible</span>
+                </div>
+                <h3 class="plan-title">Choose exact premium days</h3>
+                <p class="plan-caption mb-2">Pick your own duration with transparent daily pricing.</p>
+                <div class="plan-price">₹{{ '%.2f'|format(custom_daily_rate_rupees) }}/day</div>
+                <div class="plan-per-day">Minimum {{ custom_min_days }} days, maximum {{ custom_max_days }} days</div>
+                <div class="custom-days-helper">Choose your exact premium duration. Final amount updates in real time.</div>
+
+                <div class="custom-quick-chips" aria-label="Quick custom duration">
+                  {% for days in custom_quick_chips %}
+                    <button class="btn btn-sm btn-outline-secondary custom-days-chip" type="button" data-custom-days-chip="{{ days }}">{{ days }} days</button>
+                  {% endfor %}
+                </div>
+
+                <form
+                  method="post"
+                  action="{{ url_for('main.subscribe') }}"
+                  class="razorpay-upgrade-form mt-auto"
+                  data-plan-key="pro_custom"
+                  data-custom-plan="true"
+                  data-daily-rate-paise="{{ custom_daily_rate_paise }}"
+                >
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="plan_key" value="pro_custom">
+                  <label class="form-label small text-muted" for="customDaysSettings">Custom days</label>
+                  <input
+                    class="form-control"
+                    id="customDaysSettings"
+                    type="number"
+                    name="custom_days"
+                    min="{{ custom_min_days }}"
+                    max="{{ custom_max_days }}"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Enter days (example: 15)"
+                    aria-describedby="customDaysHint"
+                  >
+                  <div class="small text-danger mt-2 d-none" data-custom-error role="alert"></div>
+                  <div class="custom-live-preview mt-2" data-custom-price-display>
+                    <span><strong data-custom-live-days>{{ custom_min_days }}</strong> days</span>
+                    <span>=</span>
+                    <span><strong data-custom-price>₹{{ '%.2f'|format((custom_min_days * custom_daily_rate_paise) / 100) }}</strong></span>
+                  </div>
+                  <div class="small text-muted mt-1" data-custom-confirm id="customDaysHint">
+                    Final payable amount is shown above.
+                  </div>
+                  <button class="btn btn-primary plan-cta w-100 mt-3" type="button" data-upgrade-button data-default-label="Pay Custom Amount">
+                    Pay Custom Amount
+                  </button>
+                </form>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="billing-transactions-shell">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+            <h3 class="h6 mb-0">Recent transactions</h3>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.billing_transactions') }}">
+              View full history
+            </a>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle billing-history-table mb-0">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Plan</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Reference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for tx in recent_transactions %}
+                <tr>
+                  <td>{{ tx.timestamp.strftime('%d %b %Y %H:%M') if tx.timestamp else '-' }}</td>
+                  <td>
+                    <div class="fw-medium">{{ tx.plan_name }}</div>
+                    <div class="small text-muted">{{ tx.duration_label }}</div>
+                  </td>
+                  <td>{{ tx.amount_paise|money }}</td>
+                  <td><span class="badge text-bg-{{ tx.status_tone }}">{{ tx.status_label }}</span></td>
+                  <td class="small text-break">{{ tx.reference or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="5" class="text-center text-secondary py-3">No premium transactions yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="billing-trust-grid">
+          <article class="billing-trust-card">
+            <i class="bi bi-shield-lock"></i>
+            <h4>Secure payments</h4>
+            <p>{{ 'All transactions are processed securely via Razorpay.' if payment_mode == 'live' else 'Demo mode keeps billing flow testable without real charges.' }}</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-lightning-charge"></i>
+            <h4>Instant activation</h4>
+            <p>Your premium status activates automatically after successful payment.</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-clock-history"></i>
+            <h4>Billing history</h4>
+            <p>Payment records are tracked for easy support and verification.</p>
+          </article>
+          <article class="billing-trust-card">
+            <i class="bi bi-headset"></i>
+            <h4>Need help?</h4>
+            <p>Contact support if checkout fails or you need invoice assistance.</p>
+          </article>
+        </div>
+
+        <div class="billing-faq card border-0 shadow-sm">
+          <div class="card-body">
+            <h3 class="h6 mb-3">Billing FAQs</h3>
+            <div class="accordion accordion-flush" id="billingFaq">
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqActivation" aria-expanded="true" aria-controls="faqActivation">
+                    How is premium activated?
+                  </button>
+                </h4>
+                <div id="faqActivation" class="accordion-collapse collapse show" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Premium activates automatically immediately after a successful Razorpay payment callback.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqRenew" aria-expanded="false" aria-controls="faqRenew">
+                    Can I renew before expiry?
+                  </button>
+                </h4>
+                <div id="faqRenew" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes, you can renew anytime from this billing section to continue premium access without interruption.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqExpiry" aria-expanded="false" aria-controls="faqExpiry">
+                    What happens after premium ends?
+                  </button>
+                </h4>
+                <div id="faqExpiry" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Your account falls back to free tier limits. You can upgrade again anytime from settings.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqSecure" aria-expanded="false" aria-controls="faqSecure">
+                    Is payment secure?
+                  </button>
+                </h4>
+                <div id="faqSecure" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes. Checkout is handled on Razorpay with encrypted payment processing and verified callbacks.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCustom" aria-expanded="false" aria-controls="faqCustom">
+                    Can I buy custom days?
+                  </button>
+                </h4>
+                <div id="faqCustom" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Yes. Choose custom duration with ₹{{ '%.2f'|format(custom_daily_rate_rupees) }}/day between {{ custom_min_days }} and {{ custom_max_days }} days.</div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h4 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqReferral" aria-expanded="false" aria-controls="faqReferral">
+                    How do referral rewards work?
+                  </button>
+                </h4>
+                <div id="faqReferral" class="accordion-collapse collapse" data-bs-parent="#billingFaq">
+                  <div class="accordion-body">Use Refer &amp; Earn to invite friends. Premium bonus days are auto-added after successful referral milestones.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a class="billing-refer-banner" href="{{ url_for('main.settings', tab='refer', _anchor='refer-earn') }}">
+          <span class="billing-refer-icon"><i class="bi bi-gift"></i></span>
+          <span class="billing-refer-copy">
+            <strong>Invite friends and earn premium days</strong>
+            <small>Use Refer & Earn to unlock extra premium access.</small>
+          </span>
+          <span class="billing-refer-cta">Open Refer &amp; Earn <i class="bi bi-arrow-right"></i></span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4" id="profile-settings" data-settings-panel="profile" data-settings-primary-anchor="profile-settings" role="tabpanel" aria-labelledby="settings-tab-profile" {% if selected_settings_tab != 'profile' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body">
+        <h2 class="h5 mb-3">Profile</h2>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          {% if is_premium_user %}
+          <span class="premium-avatar-ring premium-avatar-ring-lg" aria-hidden="true">
+            {% if profile_photo_url %}
+            <img class="profile-avatar-lg premium-avatar-img" src="{{ profile_photo_url }}" alt="Premium profile photo">
+            {% else %}
+            <span class="profile-avatar-lg placeholder-avatar premium-avatar-fallback">{{ (current_user.full_name or current_user.email or 'U')[0]|upper }}</span>
+            {% endif %}
+            <span class="premium-verified-badge premium-verified-badge-lg"><i class="bi bi-check-lg"></i></span>
+          </span>
+          {% else %}
+            {% if profile_photo_url %}
+            <img class="profile-avatar-lg" src="{{ profile_photo_url }}" alt="Profile photo">
+            {% else %}
+            <div class="profile-avatar-lg placeholder-avatar">{{ (current_user.full_name or current_user.email or 'U')[0]|upper }}</div>
+            {% endif %}
+          {% endif %}
+          <div>
+            <div class="fw-semibold">{{ current_user.full_name }}</div>
+            <div class="small text-muted">{{ current_user.email }}</div>
+            {% if is_premium_user %}
+            <span class="price-chip premium-chip mt-2"><i class="bi bi-gem me-1"></i>Premium Active</span>
+            {% endif %}
+          </div>
+        </div>
+        <form action="{{ url_for('main.update_profile_photo') }}" method="post" enctype="multipart/form-data" class="vstack gap-2 mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="form-label small text-muted mb-0">Profile photo</label>
+          <input class="form-control" type="file" name="profile_photo" accept=".png,.jpg,.jpeg,.webp">
+          <button class="btn btn-outline-secondary" type="submit">Upload photo</button>
+        </form>
+        <div class="vstack gap-2">
+          <div class="metric-inline"><span>Name</span><strong>{{ current_user.full_name }}</strong></div>
+          <div class="metric-inline"><span>Email</span><strong>{{ current_user.email }}</strong></div>
+          <div class="metric-inline"><span>Plan</span><strong>{{ active_subscription.plan_name if active_subscription else 'Free' }}</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4" id="profile-security" data-settings-panel="security" data-settings-primary-anchor="profile-security" role="tabpanel" aria-labelledby="settings-tab-security" {% if selected_settings_tab != 'security' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="h5 mb-1"><i class="bi bi-shield-lock me-2 text-success"></i>Password Reset Key</h2>
+            <p class="text-secondary small mb-0">
+              Password reset now uses your <strong>4-digit Secret Key</strong>. Keep your key private and update it anytime.
+            </p>
+          </div>
+          <span class="price-chip"><i class="bi bi-key me-1"></i>4 Digits Required</span>
+        </div>
+
+        <div class="password-reset-key-shell mb-3">
+          <div class="password-reset-key-preview">
+            <span class="reset-key-icon-preview">
+              <i class="bi {{ current_user.password_reset_key_icon if current_user.password_reset_key_icon else 'bi-key-fill' }}"></i>
+            </span>
+            <div>
+              <div class="small text-muted">Current icon</div>
+              <div class="fw-semibold">{{ current_user.password_reset_key_icon if current_user.password_reset_key_icon else 'bi-key-fill' }}</div>
+            </div>
+          </div>
+          <div class="small text-muted">
+            Key value is never shown after save for security reasons.
+          </div>
+        </div>
+
+        <form action="{{ url_for('main.update_password_reset_key') }}" method="post" class="vstack gap-3 mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div>
+            <label class="form-label small text-muted mb-2">Choose key icon</label>
+            <div class="reset-icon-grid">
+              {% for icon_name in password_reset_icon_choices %}
+              <label class="reset-icon-option">
+                <input
+                  type="radio"
+                  name="reset_key_icon"
+                  value="{{ icon_name }}"
+                  {% if (current_user.password_reset_key_icon or 'bi-key-fill') == icon_name %}checked{% endif %}
+                >
+                <span><i class="bi {{ icon_name }}"></i></span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small text-muted" for="resetKeyInput">New 4-digit key</label>
+              <input class="form-control" id="resetKeyInput" name="reset_key" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small text-muted" for="resetKeyConfirmInput">Confirm 4-digit key</label>
+              <input class="form-control" id="resetKeyConfirmInput" name="confirm_reset_key" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-primary" type="submit" name="action" value="set">Update Password Reset Key</button>
+            <button class="btn btn-outline-secondary" type="submit" name="action" value="icon" formnovalidate>
+              Update icon only
+            </button>
+          </div>
+        </form>
+
+        <form action="{{ url_for('main.update_password_reset_key') }}" method="post" class="d-flex align-items-center flex-wrap gap-2 mb-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="generate">
+          <input type="hidden" name="reset_key_icon" value="{{ current_user.password_reset_key_icon if current_user.password_reset_key_icon else 'bi-key-fill' }}">
+          <button class="btn btn-outline-secondary" type="submit">
+            <i class="bi bi-arrow-clockwise me-1"></i>Generate New Random Key
+          </button>
+          <span class="small text-muted">A new key will be shown once after generation.</span>
+        </form>
+
+        <div class="auth-inline-note mt-3 mb-0">
+          <i class="bi bi-life-preserver"></i>
+          <span>
+            Help to forget key:
+            <a class="auth-inline-link ms-1" href="{{ password_reset_help_link }}" target="_blank" rel="noopener">
+              Open Gmail to {{ password_reset_help_email }}
+            </a>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm mb-4" id="refer-earn" data-settings-panel="refer" data-settings-primary-anchor="refer-earn" role="tabpanel" aria-labelledby="settings-tab-refer" {% if selected_settings_tab != 'refer' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="h5 mb-1"><i class="bi bi-gift me-2 text-success"></i>Refer & Earn</h2>
+            <p class="text-secondary small mb-0">Invite friends and unlock automatic premium rewards.</p>
+          </div>
+          <span class="price-chip"><i class="bi bi-stars me-1"></i>Reward Rule: 2 = 1 Day Pro</span>
+        </div>
+
+        <div class="referral-code-shell mb-3">
+          <div>
+            <div class="small text-muted mb-1">Your referral code</div>
+            <div class="referral-code-value" id="referralCodeValue">{{ referral_code }}</div>
+          </div>
+          <button class="btn btn-outline-secondary" type="button" id="copyReferralCodeBtn">
+            <i class="bi bi-clipboard me-1"></i>Copy code
+          </button>
+        </div>
+
+        <div class="small mb-2">
+          You have referred <strong>{{ total_referrals }}</strong> friend{{ 's' if total_referrals != 1 else '' }}.
+          Just <strong>{{ referrals_to_next_reward }}</strong> more to get <strong>1 Day of Premium</strong>!
+        </div>
+        <div class="progress referral-progress mb-2" role="progressbar" aria-valuenow="{{ referral_progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar bg-success" style="width: {{ referral_progress_percent }}%"></div>
+        </div>
+        <div class="small text-muted mb-3">{{ total_referrals % referral_step }} / {{ referral_step }} referrals towards next reward.</div>
+
+        <div class="referral-terms-box">
+          <h3 class="h6 mb-2">Terms & Conditions</h3>
+          <ul class="small mb-0">
+            <li><strong>Share & Win:</strong> Get 1 Day of Full Premium Access for every 2 friends who successfully sign up.</li>
+            <li><strong>Instant Activation:</strong> Premium is activated automatically the moment your 2nd friend joins.</li>
+            <li><strong>Fair Play:</strong> Creating fake accounts, using disposable emails, or self-referring from the same IP will result in a permanent hardware ban.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm" id="share-with-friends" data-settings-panel="share" data-settings-primary-anchor="share-with-friends" role="tabpanel" aria-labelledby="settings-tab-share" {% if selected_settings_tab != 'share' %}hidden aria-hidden="true"{% else %}aria-hidden="false"{% endif %}>
+      <div class="card-body">
+        <h2 class="h5 mb-2">Share with friends</h2>
+        <p class="text-secondary small mb-3">Invite friends to PDFMaster Ultra Suite with your app link.</p>
+        <div class="row g-2 align-items-center">
+          <div class="col-lg-8">
+            <input class="form-control" id="shareLinkInput" type="text" value="{{ share_link }}" readonly>
+          </div>
+          <div class="col-lg-4 d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary flex-grow-1" id="copyShareLinkBtn" type="button">
+              <i class="bi bi-clipboard me-1"></i>Copy link
+            </button>
+            <button class="btn btn-primary flex-grow-1" id="nativeShareBtn" type="button">
+              <i class="bi bi-share me-1"></i>Share now
+            </button>
+          </div>
+        </div>
+        <div class="small text-secondary mt-2">Tip: WhatsApp, Telegram, and browser share panel will open where supported.</div>
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+window.setupPremiumBillingUI && window.setupPremiumBillingUI();
+window.setupRazorpayUpgrade && window.setupRazorpayUpgrade();
+
+(function () {
+  const root = document.querySelector('[data-settings-root]');
+  if (!root) return;
+
+  const allowedTabs = ['billing', 'profile', 'security', 'refer', 'share'];
+  const tabToAnchor = {
+    billing: 'billing',
+    profile: 'profile-settings',
+    security: 'profile-security',
+    refer: 'refer-earn',
+    share: 'share-with-friends',
+  };
+
+  const anchorToTab = {
+    billing: 'billing',
+    'profile-settings': 'profile',
+    'profile-security': 'security',
+    'refer-earn': 'refer',
+    'share-with-friends': 'share',
+  };
+
+  const navLinks = Array.from(root.querySelectorAll('.settings-nav-link[data-settings-tab]'));
+  const panels = Array.from(root.querySelectorAll('[data-settings-panel]'));
+  const emptyState = root.querySelector('[data-settings-empty-state]');
+  const defaultTabRaw = (root.getAttribute('data-settings-default-tab') || '').toLowerCase();
+  const defaultTab = allowedTabs.includes(defaultTabRaw) ? defaultTabRaw : '';
+
+  const normalizeTab = function (value) {
+    const normalized = (value || '').toLowerCase().trim();
+    return allowedTabs.includes(normalized) ? normalized : '';
+  };
+
+  const getPrimaryAnchor = function (tab) {
+    const explicit = tabToAnchor[tab] || '';
+    if (explicit && document.getElementById(explicit)) {
+      return explicit;
+    }
+    const firstPanel = panels.find((panel) => ((panel.getAttribute('data-settings-panel') || '').toLowerCase() === tab));
+    return firstPanel && firstPanel.id ? firstPanel.id : '';
+  };
+
+  const applyTabState = function (tab) {
+    const hasActiveTab = Boolean(tab);
+    navLinks.forEach(function (link) {
+      const isActive = (link.dataset.settingsTab || '').toLowerCase() === tab;
+      link.classList.toggle('is-active', isActive);
+      link.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      link.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+
+    panels.forEach(function (panel) {
+      const panelTab = (panel.getAttribute('data-settings-panel') || '').toLowerCase();
+      const isActivePanel = hasActiveTab && panelTab === tab;
+      panel.hidden = !isActivePanel;
+      panel.setAttribute('aria-hidden', isActivePanel ? 'false' : 'true');
+    });
+
+    if (emptyState) {
+      emptyState.hidden = hasActiveTab;
+      emptyState.setAttribute('aria-hidden', hasActiveTab ? 'true' : 'false');
+    }
+  };
+
+  const setActiveTab = function (tab, options) {
+    const opts = options || {};
+    const normalizedTab = normalizeTab(tab) || defaultTab || '';
+    applyTabState(normalizedTab);
+
+    const anchor = getPrimaryAnchor(normalizedTab);
+    const params = new URLSearchParams(window.location.search);
+    if (normalizedTab) {
+      params.set('tab', normalizedTab);
+    } else {
+      params.delete('tab');
+    }
+    const queryString = params.toString();
+    const nextHash = anchor ? '#' + anchor : '';
+    const nextUrl = window.location.pathname + (queryString ? '?' + queryString : '') + nextHash;
+
+    if (opts.pushState) {
+      window.history.pushState(null, '', nextUrl);
+    } else {
+      window.history.replaceState(null, '', nextUrl);
+    }
+
+    if (opts.scrollToPanel && anchor) {
+      const target = document.getElementById(anchor);
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: opts.smooth ? 'smooth' : 'auto', block: 'start' });
+      }
+    }
+  };
+
+  navLinks.forEach(function (link) {
+    const tab = normalizeTab(link.dataset.settingsTab || '');
+    if (!tab) return;
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      setActiveTab(tab, { pushState: true, scrollToPanel: true, smooth: true });
+    });
+  });
+
+  const tabFromQuery = normalizeTab(new URLSearchParams(window.location.search).get('tab') || '');
+  const hashId = (window.location.hash || '').replace(/^#/, '').trim();
+  const tabFromHash = normalizeTab(anchorToTab[hashId] || '');
+  const initialTab = tabFromHash || tabFromQuery || defaultTab || '';
+  setActiveTab(initialTab, { pushState: false, scrollToPanel: false, smooth: false });
+
+  window.addEventListener('popstate', function () {
+    const queryTab = normalizeTab(new URLSearchParams(window.location.search).get('tab') || '');
+    const hashValue = (window.location.hash || '').replace(/^#/, '').trim();
+    const hashTab = normalizeTab(anchorToTab[hashValue] || '');
+    applyTabState(hashTab || queryTab || defaultTab);
+  });
+
+  window.addEventListener('hashchange', function () {
+    const updatedHash = (window.location.hash || '').replace(/^#/, '').trim();
+    const mappedTab = normalizeTab(anchorToTab[updatedHash] || '');
+    if (mappedTab) {
+      setActiveTab(mappedTab, { pushState: false, scrollToPanel: false, smooth: false });
+    }
+  });
+
+  document.querySelectorAll('a[href]').forEach(function (anchor) {
+    const rawHref = anchor.getAttribute('href') || '';
+    if (!rawHref || rawHref.charAt(0) !== '#') {
+      return;
+    }
+    const targetId = rawHref.slice(1);
+    const mappedTab = normalizeTab(anchorToTab[targetId] || '');
+    if (!mappedTab) {
+      return;
+    }
+    anchor.addEventListener('click', function () {
+      setActiveTab(mappedTab, { pushState: false, scrollToPanel: false, smooth: false });
+    });
+  });
+})();
+
+(function () {
+  const root = document.querySelector('[data-settings-root]');
+  if (!root) return;
+
+  const heading = document.querySelector('.dashboard-topbar .h2');
+  const subtitle = document.querySelector('.dashboard-topbar p');
+  const tabLabels = {
+    default: {
+      title: 'Account settings',
+      subtitle: 'Select a section from Settings menu to continue.',
+    },
+    billing: {
+      title: 'Account settings',
+      subtitle: 'Manage profile details, premium plan, and referral rewards from one place.',
+    },
+    profile: {
+      title: 'Profile settings',
+      subtitle: 'Manage profile photo and account details.',
+    },
+    security: {
+      title: 'Secret Key settings',
+      subtitle: 'Manage your 4-digit Password Reset Secret Key securely.',
+    },
+    refer: {
+      title: 'Refer & Earn',
+      subtitle: 'Track referral progress and unlock automatic premium rewards.',
+    },
+    share: {
+      title: 'Share with friends',
+      subtitle: 'Copy and share your invite link from one clean panel.',
+    },
+  };
+
+  const syncHeadingFromActiveTab = function () {
+    const activeLink = root.querySelector('.settings-nav-link.is-active[data-settings-tab]');
+    const activeTab = activeLink ? (activeLink.dataset.settingsTab || '').toLowerCase() : '';
+    const textPack = tabLabels[activeTab] || tabLabels.default;
+    if (heading) heading.textContent = textPack.title;
+    if (subtitle) subtitle.textContent = textPack.subtitle;
+  };
+
+  syncHeadingFromActiveTab();
+  root.addEventListener('click', function (event) {
+    const clicked = event.target.closest('.settings-nav-link[data-settings-tab]');
+    if (!clicked) return;
+    window.setTimeout(syncHeadingFromActiveTab, 0);
+  });
+  window.addEventListener('popstate', syncHeadingFromActiveTab);
+  window.addEventListener('hashchange', syncHeadingFromActiveTab);
+})();
+
+(function () {
+  const root = document.querySelector('[data-settings-root]');
+  if (!root) return;
+  const activePanel = root.querySelector('[data-settings-panel]:not([hidden])');
+  if (activePanel && activePanel.classList.contains('billing-shell')) {
+    const plans = activePanel.querySelector('#billing-plans');
+    if (plans && window.location.hash === '#billing-plans') {
+      plans.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+})();
+
+(function () {
+  const referralCodeElement = document.getElementById('referralCodeValue');
+  const copyReferralCodeBtn = document.getElementById('copyReferralCodeBtn');
+  if (referralCodeElement && copyReferralCodeBtn) {
+    copyReferralCodeBtn.addEventListener('click', async function () {
+      const value = (referralCodeElement.textContent || '').trim();
+      if (!value) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const temp = document.createElement('textarea');
+          temp.value = value;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand('copy');
+          temp.remove();
+        }
+        copyReferralCodeBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+        setTimeout(() => {
+          copyReferralCodeBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy code';
+        }, 1400);
+      } catch (e) {
+        alert('Copy failed. Please copy the referral code manually.');
+      }
+    });
+  }
+
+  const shareInput = document.getElementById('shareLinkInput');
+  const copyShareBtn = document.getElementById('copyShareLinkBtn');
+  const nativeShareBtn = document.getElementById('nativeShareBtn');
+  if (!shareInput || !copyShareBtn || !nativeShareBtn) return;
+
+  copyShareBtn.addEventListener('click', async function () {
+    const value = shareInput.value || '';
+    if (!value) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        shareInput.select();
+        document.execCommand('copy');
+      }
+      copyShareBtn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+      setTimeout(() => {
+        copyShareBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy link';
+      }, 1400);
+    } catch (e) {
+      alert('Copy failed. Please copy the link manually.');
+    }
+  });
+
+  nativeShareBtn.addEventListener('click', async function () {
+    const value = shareInput.value || '';
+    const shareData = {
+      title: 'PDFMaster Ultra Suite',
+      text: 'Try PDFMaster Ultra Suite for PDF tools and productivity workflows.',
+      url: value,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      const whatsappUrl = 'https://wa.me/?text=' + encodeURIComponent(shareData.text + ' ' + shareData.url);
+      window.open(whatsappUrl, '_blank');
+    } catch (e) {
+      // User closed share dialog or browser blocked popup.
+    }
+  });
+})();
+</script>
+{% endblock %}

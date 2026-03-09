@@ -1,0 +1,32 @@
+{% extends 'tool_pages/tool_shell.html' %}
+{% block tool_form %}
+<h2 class="h4 mb-3">Text and image watermarking</h2>
+<form method="post" action="{{ url_for('tools.run_tool', tool_key=tool.tool_key) }}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12"><input class="form-control" type="file" name="document" accept=".pdf" required></div>
+  <div class="col-md-6">
+    <label class="form-label">Watermark type</label>
+    <select class="form-select" name="watermark_type">
+      <option value="text">Text watermark</option>
+      <option value="image">Image watermark</option>
+    </select>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Position</label>
+    <select class="form-select" name="position">
+      <option value="center">Center</option>
+      <option value="diagonal">Diagonal</option>
+      <option value="top_left">Top left</option>
+      <option value="top_right">Top right</option>
+      <option value="bottom_center">Bottom center</option>
+    </select>
+  </div>
+  <div class="col-md-6"><input class="form-control" type="text" name="watermark_text" placeholder="CONFIDENTIAL"></div>
+  <div class="col-md-6"><input class="form-control" type="file" name="watermark_image" accept=".png,.jpg,.jpeg,.webp"></div>
+  <div class="col-md-6">
+    <label class="form-label">Opacity</label>
+    <input class="form-range" type="range" name="opacity" min="0.1" max="0.9" step="0.05" value="0.2">
+  </div>
+  <div class="col-12"><button class="btn btn-primary">Apply watermark</button></div>
+</form>
+{% endblock %}
