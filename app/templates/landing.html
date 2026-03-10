@@ -9,6 +9,13 @@
       <p class="lead text-secondary mb-4">
         Built for students, office teams, HR, legal workflows, teachers, and freelancers. The platform ships with a seeded catalog of 1000+ tool slots, wallet billing, admin control, dark mode, and modular PDF engines.
       </p>
+      <p class="small text-secondary mb-4">
+        Purpose: {{ APP_NAME }} helps users process documents online by converting, merging, splitting, compressing, OCR scanning, e-signing, and securing PDFs from one workspace.
+        Read our
+        <a href="{{ url_for('main.privacy_policy') }}">Privacy Policy</a>
+        and
+        <a href="{{ url_for('main.terms_of_service') }}">Terms of Service</a>.
+      </p>
       <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-primary btn-lg" href="{{ url_for('auth.signup') }}">Start Free</a>
         <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('auth.login') }}">Login</a>

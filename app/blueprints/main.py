@@ -227,6 +227,16 @@ def landing():
     )
 
 
+@main_bp.route("/privacy")
+def privacy_policy():
+    return render_template("privacy.html")
+
+
+@main_bp.route("/terms")
+def terms_of_service():
+    return render_template("terms.html")
+
+
 @main_bp.route("/dashboard")
 @login_required
 def dashboard():
