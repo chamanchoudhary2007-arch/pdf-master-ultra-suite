@@ -1172,7 +1172,7 @@
     });
   };
 
-  const defaultBillingSettingsUrl = "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing";
+  const defaultBillingSettingsUrl = "https://pdf-master-ultra-suite.in/settings?tab=billing";
 
   window.getBillingSettingsUrl = function getBillingSettingsUrl() {
     const configuredUrl = (document.body && document.body.dataset && document.body.dataset.billingSettingsUrl) || "";

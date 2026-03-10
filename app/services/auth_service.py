@@ -202,7 +202,7 @@ class AuthService:
         parsed = urlparse(billing_url)
         if parsed.scheme and parsed.netloc:
             return f"{parsed.scheme}://{parsed.netloc}"
-        return "https://pdf-master-ultra-suite.onrender.com"
+        return "https://pdf-master-ultra-suite.in"
 
     @staticmethod
     def _resolve_email_logo_url() -> str:

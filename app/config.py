@@ -119,13 +119,13 @@ class Config:
     EMAIL_LOGO_URL = (
         os.environ.get(
             "EMAIL_LOGO_URL",
-            "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg",
+            "https://pdf-master-ultra-suite.in/static/images/logo.jpeg",
         )
-        or "https://pdf-master-ultra-suite.onrender.com/static/images/logo.jpeg"
+        or "https://pdf-master-ultra-suite.in/static/images/logo.jpeg"
     ).strip()
     PUBLIC_BASE_URL = (
-        os.environ.get("PUBLIC_BASE_URL", "https://pdf-master-ultra-suite.onrender.com")
-        or "https://pdf-master-ultra-suite.onrender.com"
+        os.environ.get("PUBLIC_BASE_URL", "https://pdf-master-ultra-suite.in")
+        or "https://pdf-master-ultra-suite.in"
     ).strip().rstrip("/")
     OTP_TTL_MINUTES = int(os.environ.get("OTP_TTL_MINUTES", 2))
     OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", 5))
@@ -164,9 +164,9 @@ class Config:
     BILLING_SETTINGS_URL = (
         os.environ.get(
             "BILLING_SETTINGS_URL",
-            "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing",
+            "https://pdf-master-ultra-suite.in/settings?tab=billing",
         )
-        or "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing"
+        or "https://pdf-master-ultra-suite.in/settings?tab=billing"
     ).strip()
 
 

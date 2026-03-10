@@ -270,7 +270,7 @@ def register_template_helpers(app: Flask) -> None:
             "profile_photo_url": profile_photo_url,
             "billing_settings_url": current_app.config.get(
                 "BILLING_SETTINGS_URL",
-                "https://pdf-master-ultra-suite.onrender.com/settings?tab=billing",
+                "https://pdf-master-ultra-suite.in/settings?tab=billing",
             ),
             "tool_categories": [
                 "Organize",
