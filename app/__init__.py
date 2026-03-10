@@ -293,13 +293,66 @@ def register_commands(app: Flask) -> None:
     from app.seeds import seed_admin_user, seed_tool_catalog
     from app.services.storage_service import StorageService
 
+    def _upgrade_or_stamp_legacy() -> str:
+        """Apply migrations with safeguards for legacy and inconsistent schemas."""
+        from flask_migrate import stamp, upgrade
+
+        try:
+            inspector = inspect(db.engine)
+            legacy_signature_tables = ("users", "tool_catalog", "managed_files", "jobs")
+            core_table_presence = {
+                table_name: inspector.has_table(table_name)
+                for table_name in legacy_signature_tables
+            }
+            has_any_core_table = any(core_table_presence.values())
+            has_all_core_tables = all(core_table_presence.values())
+
+            has_alembic_table = inspector.has_table("alembic_version")
+            has_alembic_version = False
+            if has_alembic_table:
+                version_rows = db.session.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
+                has_alembic_version = bool(version_rows)
+
+            if has_alembic_version and not has_any_core_table:
+                stamp(revision="base")
+                current_app.logger.warning(
+                    "Alembic version found but core tables are missing. Reset to base and re-applied migrations."
+                )
+                upgrade()
+                return "repaired"
+
+            if has_all_core_tables and not has_alembic_version:
+                stamp(revision="head")
+                current_app.logger.warning(
+                    "Legacy database detected (pre-migrations). Stamped alembic head without schema changes."
+                )
+                return "stamped"
+
+            upgrade()
+            return "upgraded"
+        except FileNotFoundError as exc:
+            current_app.logger.warning(
+                "Alembic configuration not found (%s). Falling back to db.create_all().",
+                exc,
+            )
+            db.create_all()
+            return "fallback"
+
     @app.cli.command("init-db")
     def init_db_command() -> None:
-        db.create_all()
+        status = _upgrade_or_stamp_legacy()
         ensure_user_referral_schema()
-        seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
+        created = seed_tool_catalog(app.config["TOOL_PLACEHOLDER_TARGET"])
         seed_admin_user()
-        print("Database initialized and seed data loaded.")
+        if status == "stamped":
+            print("Legacy schema detected. Migration head stamped successfully.")
+        elif status == "repaired":
+            print("Inconsistent migration state detected. Schema repaired and migrations applied.")
+        elif status == "fallback":
+            print("Alembic configuration not found. Fallback schema initialization applied.")
+        else:
+            print("Database migrations applied.")
+        print(f"Seed complete. created_tool_rows={created}")
 
     @app.cli.command("cleanup-files")
     def cleanup_files_command() -> None:

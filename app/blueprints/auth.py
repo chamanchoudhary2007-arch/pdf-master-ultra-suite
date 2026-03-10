@@ -33,6 +33,17 @@ def _is_google_oauth_configured() -> bool:
     )
 
 
+def _build_google_callback_url() -> str:
+    configured_uri = (current_app.config.get("GOOGLE_REDIRECT_URI") or "").strip()
+    if configured_uri.startswith(("http://", "https://")):
+        return configured_uri
+    if configured_uri.startswith("/"):
+        public_base_url = (current_app.config.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+        if public_base_url:
+            return f"{public_base_url}{configured_uri}"
+    return url_for("main.google_auth_callback", _external=True)
+
+
 def _format_datetime_ist(dt) -> str:
     if not dt:
         return ""
@@ -158,7 +169,8 @@ def google_login():
         flash("Google login is not configured yet.", "danger")
         return redirect(url_for("auth.login"))
     session["google_oauth_next"] = _safe_next_url(request.args.get("next"))
-    redirect_uri = url_for("main.google_auth_callback", _external=True)
+    redirect_uri = _build_google_callback_url()
+    session["google_oauth_redirect_uri"] = redirect_uri
     try:
         return oauth.google.authorize_redirect(redirect_uri, prompt="select_account")
     except Exception:
@@ -176,7 +188,8 @@ def google_auth():
         return redirect(url_for("auth.login"))
 
     try:
-        token = oauth.google.authorize_access_token()
+        redirect_uri = session.pop("google_oauth_redirect_uri", "") or _build_google_callback_url()
+        token = oauth.google.authorize_access_token(redirect_uri=redirect_uri)
         user_info = token.get("userinfo") if token else None
         if not user_info:
             user_info = oauth.google.parse_id_token(token)
@@ -303,6 +316,8 @@ def verify_otp():
 @login_required
 def logout():
     session.pop("is_admin_session", None)
+    session.pop("google_oauth_redirect_uri", None)
+    session.pop("google_oauth_next", None)
     logout_user()
     flash("You have been signed out.", "success")
     return redirect(url_for("main.landing"))

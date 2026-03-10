@@ -29,13 +29,27 @@ def _read_env_bool(name: str, default: bool = False) -> bool:
     return raw_value in {"1", "true", "yes", "on"}
 
 
+def _normalize_database_url(raw_url: str) -> str:
+    value = (raw_url or "").strip()
+    if not value:
+        return ""
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql+psycopg://", 1)
+    if value.startswith("postgresql://") and not value.startswith("postgresql+"):
+        return value.replace("postgresql://", "postgresql+psycopg://", 1)
+    return value
+
+
+def _read_database_url() -> str:
+    primary = (os.environ.get("DATABASE_URL", "") or "").strip()
+    fallback = (os.environ.get("DATABASE_URI", "") or "").strip()
+    return _normalize_database_url(primary or fallback)
+
+
 class Config:
     APP_NAME = "PDFMaster Ultra Suite"
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-this-in-production")
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        f"sqlite:///{(BASE_DIR / 'instance' / 'pdfmaster_ultra.db').as_posix()}",
-    )
+    SQLALCHEMY_DATABASE_URI = _read_database_url() or f"sqlite:///{(BASE_DIR / 'instance' / 'pdfmaster_ultra.db').as_posix()}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     REMEMBER_COOKIE_HTTPONLY = True
     SESSION_COOKIE_HTTPONLY = True
@@ -124,6 +138,7 @@ class Config:
         )
         or "https://accounts.google.com/.well-known/openid-configuration"
     ).strip()
+    GOOGLE_REDIRECT_URI = (os.environ.get("GOOGLE_REDIRECT_URI", "") or "").strip()
     ADMIN_EMAIL = (
         os.environ.get("ADMIN_EMAIL", "pdfmasterultrasuite@gmail.com")
         or "pdfmasterultrasuite@gmail.com"
