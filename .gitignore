@@ -46,6 +46,7 @@ logs/
 tmp/
 temp/
 *.tmp
+dist/
 
 # ------------------------------
 # Tooling / test artifacts

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import click
 from flask import Flask, current_app, url_for
 from flask_login import current_user
 from sqlalchemy import inspect, text
@@ -10,7 +11,7 @@ from sqlalchemy import inspect, text
 from app.config import config_map
 from app.extensions import csrf, db, login_manager, mail, migrate, oauth
 from app.models import ManagedFile, User, generate_referral_code
-from app.services.mail_service import MailService
+from app.services.mail_service import MailService, OTPRequestError
 from app.seeds import seed_admin_user, seed_tool_catalog
 
 
@@ -373,3 +374,47 @@ def register_commands(app: Flask) -> None:
             f"failed={stats['failed']}, "
             f"ttl_hours={stats['ttl_hours']}"
         )
+
+    @app.cli.command("check-mail")
+    @click.option(
+        "--to",
+        "recipient_override",
+        default="",
+        help="Optional recipient for SMTP test email. Defaults to configured sender.",
+    )
+    def check_mail_command(recipient_override: str) -> None:
+        """Validate mail config and send a test email from the running environment."""
+        settings, issues = MailService.inspect_config(app.config)
+        print("Mail config check:")
+        print(f"  server={settings['server']}")
+        print(f"  port={settings['port']}")
+        print(f"  tls={settings['use_tls']} ssl={settings['use_ssl']}")
+        print(f"  username={MailService.mask_email(str(settings['username']))}")
+        print(f"  default_sender={MailService.mask_email(str(settings['default_sender']))}")
+        if issues:
+            print("Configuration issues:")
+            for issue in issues:
+                print(f"  - {issue}")
+            raise SystemExit(1)
+
+        recipient = (recipient_override or "").strip() or str(settings["default_sender"])
+        if not recipient:
+            print("No recipient available for test email.")
+            raise SystemExit(1)
+
+        try:
+            MailService.send_email(
+                recipient=recipient,
+                subject="PDFMaster SMTP test email",
+                text_body="SMTP test succeeded. Your Render mail setup is working.",
+                html_body="""
+<p>SMTP test succeeded.</p>
+<p>Your Render mail setup is working.</p>
+""".strip(),
+                context="cli.check_mail",
+            )
+        except OTPRequestError as exc:
+            print(f"Mail delivery failed: {exc}")
+            raise SystemExit(2)
+
+        print(f"SMTP test email sent successfully to {MailService.mask_email(recipient)}")
