@@ -1,15 +1,49 @@
 {% extends 'base.html' %}
 {% block title %}Login | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="row justify-content-center">
-  <div class="col-lg-5">
-    <div class="card border-0 shadow-sm auth-card">
-      <div class="card-body p-4 p-lg-5">
-        <span class="eyebrow">Welcome back</span>
-        <h1 class="h3 mb-2">Login to your workspace</h1>
-        <p class="text-muted mb-4">Password-less sign in using a 6-digit OTP on email.</p>
+<section class="auth-shell auth-shell-login">
+  <div class="auth-glow auth-glow-a"></div>
+  <div class="auth-glow auth-glow-b"></div>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-xl-6">
+      <article class="auth-spotlight auth-appear auth-delay-1 h-100">
+        <span class="eyebrow">Secure Login</span>
+        <h1 class="auth-display-title">Welcome back to your PDF command center</h1>
+        <p class="auth-display-copy">
+          Enterprise-style sign in with OTP verification on email. Fast access, safer sessions, and no password leaks.
+        </p>
+        <div class="auth-feature-grid">
+          <article class="auth-feature-tile">
+            <i class="bi bi-shield-lock"></i>
+            <div>
+              <strong>Zero shared password risk</strong>
+              <p>Every login is verified with a one-time code.</p>
+            </div>
+          </article>
+          <article class="auth-feature-tile">
+            <i class="bi bi-lightning-charge"></i>
+            <div>
+              <strong>Quick access flow</strong>
+              <p>Enter email, verify OTP, and continue in seconds.</p>
+            </div>
+          </article>
+          <article class="auth-feature-tile">
+            <i class="bi bi-google"></i>
+            <div>
+              <strong>Google ready</strong>
+              <p>Use one-tap Google sign in when OAuth is enabled.</p>
+            </div>
+          </article>
+        </div>
+      </article>
+    </div>
+    <div class="col-xl-5 ms-xl-auto">
+      <div class="auth-card-premium auth-appear auth-delay-2">
+        <span class="eyebrow">Login</span>
+        <h2 class="auth-form-title">Sign in to continue</h2>
+        <p class="auth-form-copy">Use Google or your email OTP.</p>
         <a
-          class="btn google-auth-btn w-100"
+          class="btn google-auth-btn auth-btn-lg w-100"
           href="{{ url_for('main.google_login_entry', next=request.args.get('next', '')) if google_oauth_enabled else url_for('auth.login') }}"
           {% if not google_oauth_enabled %}aria-disabled="true"{% endif %}
         >
@@ -24,18 +58,26 @@
           Continue with Google
         </a>
         {% if not google_oauth_enabled %}
-        <div class="small text-muted mt-2">Google sign-in will be enabled after OAuth keys are configured.</div>
+        <p class="auth-inline-note">Google sign-in activates after OAuth keys are configured.</p>
         {% endif %}
         <div class="auth-divider"><span>OR</span></div>
         <form method="post" class="vstack gap-3">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div>
-            <label class="form-label">Email</label>
-            <input class="form-control" type="email" name="email" value="{{ form_data.email }}" required>
+            <label class="form-label auth-label">Email address</label>
+            <input
+              class="form-control"
+              type="email"
+              name="email"
+              value="{{ form_data.email }}"
+              placeholder="you@company.com"
+              autocomplete="email"
+              required
+            >
           </div>
-          <button class="btn btn-primary">Send OTP</button>
+          <button class="btn btn-primary auth-btn-lg">Send OTP</button>
         </form>
-        <div class="d-flex justify-content-between mt-4 small">
+        <div class="auth-link-row mt-4">
           <a href="{{ url_for('auth.request_reset') }}">Forgot password?</a>
           <a href="{{ url_for('auth.signup') }}">Create account</a>
         </div>

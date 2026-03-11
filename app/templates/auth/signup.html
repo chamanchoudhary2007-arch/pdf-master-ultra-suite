@@ -1,15 +1,49 @@
 {% extends 'base.html' %}
 {% block title %}Sign Up | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="row justify-content-center">
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm auth-card">
-      <div class="card-body p-4 p-lg-5">
-        <span class="eyebrow">Create account</span>
-        <h1 class="h3 mb-2">Start using PDFMaster Ultra Suite</h1>
-        <p class="text-muted mb-4">We will send a 6-digit OTP to your email before account creation.</p>
+<section class="auth-shell auth-shell-signup">
+  <div class="auth-glow auth-glow-a"></div>
+  <div class="auth-glow auth-glow-c"></div>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-xl-6">
+      <article class="auth-spotlight auth-appear auth-delay-1 h-100">
+        <span class="eyebrow">New Account</span>
+        <h1 class="auth-display-title">Create your workspace in one secure flow</h1>
+        <p class="auth-display-copy">
+          Signup follows the same polished pattern used in modern SaaS apps: quick form, OTP verification, and instant access.
+        </p>
+        <div class="auth-step-list">
+          <div class="auth-step-item">
+            <span class="auth-step-count">01</span>
+            <div>
+              <strong>Enter profile details</strong>
+              <p>Name, email, and strong password.</p>
+            </div>
+          </div>
+          <div class="auth-step-item">
+            <span class="auth-step-count">02</span>
+            <div>
+              <strong>Verify email with OTP</strong>
+              <p>6-digit code confirms account ownership.</p>
+            </div>
+          </div>
+          <div class="auth-step-item">
+            <span class="auth-step-count">03</span>
+            <div>
+              <strong>Access premium-ready dashboard</strong>
+              <p>Upload, edit, convert, and secure PDFs instantly.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+    <div class="col-xl-5 ms-xl-auto">
+      <div class="auth-card-premium auth-appear auth-delay-2">
+        <span class="eyebrow">Sign Up</span>
+        <h2 class="auth-form-title">Start with secure signup</h2>
+        <p class="auth-form-copy">A verification OTP will be sent before account creation.</p>
         <a
-          class="btn google-auth-btn w-100"
+          class="btn google-auth-btn auth-btn-lg w-100"
           href="{{ url_for('main.google_login_entry') if google_oauth_enabled else url_for('auth.signup') }}"
           {% if not google_oauth_enabled %}aria-disabled="true"{% endif %}
         >
@@ -24,41 +58,66 @@
           Continue with Google
         </a>
         {% if not google_oauth_enabled %}
-        <div class="small text-muted mt-2">Google sign-up will be enabled after OAuth keys are configured.</div>
+        <p class="auth-inline-note">Google signup activates after OAuth keys are configured.</p>
         {% endif %}
         <div class="auth-divider"><span>OR</span></div>
         <form method="post" class="row g-3">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="col-12">
-            <label class="form-label">Full name</label>
-            <input class="form-control" type="text" name="full_name" value="{{ form_data.full_name }}" required>
+            <label class="form-label auth-label">Full name</label>
+            <input
+              class="form-control"
+              type="text"
+              name="full_name"
+              value="{{ form_data.full_name }}"
+              placeholder="Your full name"
+              autocomplete="name"
+              required
+            >
           </div>
           <div class="col-12">
-            <label class="form-label">Email</label>
-            <input class="form-control" type="email" name="email" value="{{ form_data.email }}" required>
+            <label class="form-label auth-label">Email address</label>
+            <input
+              class="form-control"
+              type="email"
+              name="email"
+              value="{{ form_data.email }}"
+              placeholder="you@company.com"
+              autocomplete="email"
+              required
+            >
           </div>
           <div class="col-12">
-            <label class="form-label">Password</label>
-            <input class="form-control" type="password" name="password" minlength="8" required>
+            <label class="form-label auth-label">Password</label>
+            <input
+              class="form-control"
+              type="password"
+              name="password"
+              minlength="8"
+              placeholder="Minimum 8 characters"
+              autocomplete="new-password"
+              required
+            >
           </div>
           <div class="col-12">
-            <label class="form-label">Referral Code <span class="text-muted small">(optional)</span></label>
+            <label class="form-label auth-label">Referral code <span class="text-muted small">(optional)</span></label>
             <input
               class="form-control"
               type="text"
               name="referral_code"
               value="{{ form_data.referral_code }}"
-              placeholder="Got a code from a friend?"
+              placeholder="Got a friend referral code?"
               maxlength="16"
               autocomplete="off"
             >
           </div>
           <div class="col-12">
-            <button class="btn btn-primary w-100">Send OTP</button>
+            <button class="btn btn-primary auth-btn-lg w-100">Send OTP</button>
           </div>
         </form>
-        <div class="small mt-4">
-          Already have an account? <a href="{{ url_for('auth.login') }}">Login</a>
+        <div class="auth-link-row mt-4">
+          <span>Already have an account?</span>
+          <a href="{{ url_for('auth.login') }}">Login</a>
         </div>
       </div>
     </div>

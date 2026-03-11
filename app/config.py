@@ -29,6 +29,35 @@ def _read_env_bool(name: str, default: bool = False) -> bool:
     return raw_value in {"1", "true", "yes", "on"}
 
 
+def _read_env_first(*names: str, default: str = "") -> str:
+    for name in names:
+        value = (os.environ.get(name, "") or "").strip()
+        if value:
+            return value
+    return default
+
+
+def _read_env_int_any(names: tuple[str, ...], default: int = 0) -> int:
+    for name in names:
+        raw_value = (os.environ.get(name, "") or "").strip()
+        if not raw_value:
+            continue
+        try:
+            return int(raw_value)
+        except ValueError:
+            continue
+    return default
+
+
+def _read_env_bool_any(names: tuple[str, ...], default: bool = False) -> bool:
+    for name in names:
+        raw_value = (os.environ.get(name, "") or "").strip()
+        if not raw_value:
+            continue
+        return raw_value.lower() in {"1", "true", "yes", "on"}
+    return default
+
+
 def _normalize_database_url(raw_url: str) -> str:
     value = (raw_url or "").strip()
     if not value:
@@ -100,15 +129,15 @@ class Config:
     JOB_MAX_WORKERS = int(os.environ.get("JOB_MAX_WORKERS", 2))
     OCR_LANG = os.environ.get("OCR_LANG", "eng")
     TRANSLATION_PROVIDER = os.environ.get("TRANSLATION_PROVIDER", "")
-    MAIL_SERVER = (os.environ.get("MAIL_SERVER", "") or "").strip()
-    MAIL_PORT = _read_env_int("MAIL_PORT", 587)
-    MAIL_USE_TLS = _read_env_bool("MAIL_USE_TLS", True)
-    MAIL_USE_SSL = _read_env_bool("MAIL_USE_SSL", False)
-    MAIL_USERNAME = (os.environ.get("MAIL_USERNAME", "") or "").strip()
+    MAIL_SERVER = _read_env_first("MAIL_SERVER", "SMTP_HOST")
+    MAIL_PORT = _read_env_int_any(("MAIL_PORT", "SMTP_PORT"), 587)
+    MAIL_USE_TLS = _read_env_bool_any(("MAIL_USE_TLS", "SMTP_USE_TLS"), True)
+    MAIL_USE_SSL = _read_env_bool_any(("MAIL_USE_SSL", "SMTP_USE_SSL"), False)
+    MAIL_USERNAME = _read_env_first("MAIL_USERNAME", "SMTP_USERNAME")
     # Google App Password is often copied with spaces; normalize to compact form.
-    MAIL_PASSWORD = "".join((os.environ.get("MAIL_PASSWORD", "") or "").strip().split())
+    MAIL_PASSWORD = "".join(_read_env_first("MAIL_PASSWORD", "SMTP_PASSWORD").split())
     MAIL_DEFAULT_SENDER = (
-        os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+        _read_env_first("MAIL_DEFAULT_SENDER", "SMTP_FROM_EMAIL", default=MAIL_USERNAME)
         or MAIL_USERNAME
     ).strip()
     MAIL_SENDER_NAME = (

@@ -1,43 +1,44 @@
 {% extends 'base.html' %}
 {% block title %}Verify OTP | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="row justify-content-center">
-  <div class="col-lg-5">
-    <div class="card border-0 shadow-sm auth-card">
-      <div class="card-body p-4 p-lg-5">
+<section class="auth-shell auth-shell-otp">
+  <div class="auth-glow auth-glow-b"></div>
+  <div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8">
+      <div class="auth-card-premium auth-appear auth-delay-2">
         <span class="eyebrow">Verification</span>
-        <h1 class="h3 mb-2">Enter OTP</h1>
-        <p class="text-muted mb-4">
-          We sent a 6-digit code to <strong>{{ email }}</strong>.
-          This OTP expires at {{ expires_at_display }}.
+        <h1 class="auth-form-title">Enter your 6-digit OTP</h1>
+        <p class="auth-form-copy">
+          Code sent to <strong>{{ email }}</strong>. OTP expires on <strong>{{ expires_at_display }}</strong>.
         </p>
-        <form method="post" class="vstack gap-3">
+        <form method="post" class="vstack gap-3 mt-3">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="purpose" value="{{ purpose }}">
           <input type="hidden" name="token" value="{{ token }}">
           <input type="hidden" name="next" value="{{ next_url }}">
           <div>
-            <label class="form-label">6-digit OTP</label>
+            <label class="form-label auth-label">6-digit OTP</label>
             <input
-              class="form-control"
+              class="form-control otp-input-premium"
               type="text"
               name="otp"
               inputmode="numeric"
               pattern="[0-9]{6}"
               minlength="6"
               maxlength="6"
-              placeholder="Enter OTP"
+              placeholder="000000"
               required
             >
           </div>
-          <button class="btn btn-primary">Verify OTP</button>
+          <button class="btn btn-primary auth-btn-lg">Verify OTP</button>
         </form>
-        <div class="small mt-4">
+        <div class="auth-link-row mt-4">
           {% if purpose == 'signup' %}
-            Wrong email? <a href="{{ url_for('auth.signup') }}">Start signup again</a>
+            <a href="{{ url_for('auth.signup') }}">Start signup again</a>
           {% else %}
-            Need new OTP? <a href="{{ url_for('auth.login') }}">Go back to login</a>
+            <a href="{{ url_for('auth.login') }}">Request new OTP</a>
           {% endif %}
+          <a href="{{ url_for('auth.request_reset') }}">Forgot password?</a>
         </div>
       </div>
     </div>

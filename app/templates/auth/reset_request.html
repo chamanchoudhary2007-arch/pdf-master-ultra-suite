@@ -1,23 +1,72 @@
 {% extends 'base.html' %}
 {% block title %}Reset Password | {{ APP_NAME }}{% endblock %}
 {% block content %}
-<section class="row justify-content-center">
-  <div class="col-lg-5">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h3 mb-3">Password reset</h1>
+<section class="auth-shell auth-shell-recovery">
+  <div class="auth-glow auth-glow-b"></div>
+  <div class="auth-glow auth-glow-c"></div>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-xl-6">
+      <article class="auth-spotlight auth-appear auth-delay-1 h-100">
+        <span class="eyebrow">Account Recovery</span>
+        <h1 class="auth-display-title">Recover access safely</h1>
+        <p class="auth-display-copy">
+          Enter your registered email and we will generate a secure reset link. Use it to set a fresh password and re-enter your workspace.
+        </p>
+        <div class="auth-step-list">
+          <div class="auth-step-item">
+            <span class="auth-step-count">01</span>
+            <div>
+              <strong>Submit account email</strong>
+              <p>Only registered accounts can generate reset tokens.</p>
+            </div>
+          </div>
+          <div class="auth-step-item">
+            <span class="auth-step-count">02</span>
+            <div>
+              <strong>Use secure reset link</strong>
+              <p>Token is unique and expires automatically.</p>
+            </div>
+          </div>
+          <div class="auth-step-item">
+            <span class="auth-step-count">03</span>
+            <div>
+              <strong>Set new password</strong>
+              <p>Sign in again with updated credentials.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+    <div class="col-xl-5 ms-xl-auto">
+      <div class="auth-card-premium auth-appear auth-delay-2">
+        <span class="eyebrow">Forgot Password</span>
+        <h2 class="auth-form-title">Generate reset link</h2>
+        <p class="auth-form-copy">Provide your account email to continue.</p>
         <form method="post" class="vstack gap-3">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div>
-            <label class="form-label">Email</label>
-            <input class="form-control" type="email" name="email" required>
+            <label class="form-label auth-label">Email address</label>
+            <input
+              class="form-control"
+              type="email"
+              name="email"
+              placeholder="you@company.com"
+              autocomplete="email"
+              required
+            >
           </div>
-          <button class="btn btn-primary">Generate reset link</button>
+          <button class="btn btn-primary auth-btn-lg">Generate reset link</button>
         </form>
+        <div class="auth-link-row mt-4">
+          <a href="{{ url_for('auth.login') }}">Back to login</a>
+          <a href="{{ url_for('auth.signup') }}">Create account</a>
+        </div>
         {% if token %}
-        <div class="alert alert-info mt-4">
-          Reset link:
-          <a href="{{ url_for('auth.reset_password', token=token.token) }}">{{ url_for('auth.reset_password', token=token.token, _external=True) }}</a>
+        <div class="auth-token-preview mt-4">
+          <p class="mb-2"><strong>Reset link generated:</strong></p>
+          <a href="{{ url_for('auth.reset_password', token=token.token) }}">
+            {{ url_for('auth.reset_password', token=token.token, _external=True) }}
+          </a>
         </div>
         {% endif %}
       </div>

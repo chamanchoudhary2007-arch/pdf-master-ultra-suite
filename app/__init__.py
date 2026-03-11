@@ -46,11 +46,18 @@ def _env_bool(raw_value: str | None, default: bool) -> bool:
 
 
 def _apply_runtime_mail_env(app: Flask) -> None:
-    mail_server = (os.environ.get("MAIL_SERVER") or "").strip()
+    def _runtime_env(*names: str) -> str:
+        for name in names:
+            value = (os.environ.get(name) or "").strip()
+            if value:
+                return value
+        return ""
+
+    mail_server = _runtime_env("MAIL_SERVER", "SMTP_HOST")
     if mail_server:
         app.config["MAIL_SERVER"] = mail_server
 
-    mail_port_raw = (os.environ.get("MAIL_PORT") or "").strip()
+    mail_port_raw = _runtime_env("MAIL_PORT", "SMTP_PORT")
     if mail_port_raw:
         try:
             app.config["MAIL_PORT"] = int(mail_port_raw)
@@ -61,24 +68,26 @@ def _apply_runtime_mail_env(app: Flask) -> None:
                 app.config.get("MAIL_PORT", 587),
             )
 
+    mail_use_tls_raw = _runtime_env("MAIL_USE_TLS", "SMTP_USE_TLS")
     app.config["MAIL_USE_TLS"] = _env_bool(
-        os.environ.get("MAIL_USE_TLS"),
+        mail_use_tls_raw if mail_use_tls_raw else None,
         bool(app.config.get("MAIL_USE_TLS", True)),
     )
+    mail_use_ssl_raw = _runtime_env("MAIL_USE_SSL", "SMTP_USE_SSL")
     app.config["MAIL_USE_SSL"] = _env_bool(
-        os.environ.get("MAIL_USE_SSL"),
+        mail_use_ssl_raw if mail_use_ssl_raw else None,
         bool(app.config.get("MAIL_USE_SSL", False)),
     )
 
-    mail_username = (os.environ.get("MAIL_USERNAME") or "").strip()
+    mail_username = _runtime_env("MAIL_USERNAME", "SMTP_USERNAME")
     if mail_username:
         app.config["MAIL_USERNAME"] = mail_username
 
-    mail_password = (os.environ.get("MAIL_PASSWORD") or "").strip()
+    mail_password = _runtime_env("MAIL_PASSWORD", "SMTP_PASSWORD")
     if mail_password:
         app.config["MAIL_PASSWORD"] = "".join(mail_password.split())
 
-    mail_default_sender = (os.environ.get("MAIL_DEFAULT_SENDER") or "").strip()
+    mail_default_sender = _runtime_env("MAIL_DEFAULT_SENDER", "SMTP_FROM_EMAIL")
     if mail_default_sender:
         app.config["MAIL_DEFAULT_SENDER"] = mail_default_sender
 
